@@ -20,7 +20,6 @@ impl GameDatabase {
         let data_dir = "./data/";
         let db_path = format!("{}/database.sqlite", data_dir);
 
-        // Ensure directory exists
         fs::create_dir_all(data_dir).expect("Failed to create data directory");
         let manager = ConnectionManager::<SqliteConnection>::new(&db_path);
         let pool = Pool::builder()
@@ -36,52 +35,53 @@ impl GameDatabase {
         Self { pool }
     }
 
-    pub fn add_game_metadata(&self, game_metadata: &GameMetadata) {
-        // Insert into game_metadata
-        let new_game = NewGameMetadata {
-            steam_appid: &game_metadata.steam_appid,
-        };
-        diesel::insert_into(game_metadata::table)
-            .values(&new_game)
-            .execute(&mut self.pool.get().unwrap())
-            .expect("Error inserting game metadata");
+    pub fn add_game_metadata(
+        &self,
+        game_metadata: &GameMetadata,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let connection = &mut self.pool.get()?;
 
-        // Get the inserted id
-        let inserted_id: Option<i32> = game_metadata::table
-            .select(game_metadata::id)
-            .order(game_metadata::id.desc())
-            .first(&mut self.pool.get().unwrap())
-            .expect("Failed to get inserted id");
-
-        let inserted_id = inserted_id.expect("Inserted id is null");
-
-        // Insert known names
-        for name in &game_metadata.known_name {
-            let new_name = NewGameName {
-                name,
-                game_metadata_id: inserted_id,
+        connection.immediate_transaction(|connection| {
+            let new_game = NewGameMetadata {
+                steam_appid: &game_metadata.steam_appid,
             };
-            diesel::insert_into(game_name::table)
-                .values(&new_name)
-                .execute(&mut self.pool.get().unwrap())
-                .expect("Error inserting game name");
-        }
+            diesel::insert_into(game_metadata::table)
+                .values(&new_game)
+                .execute(connection)?;
 
-        // Insert paths
-        for path in &game_metadata.path_to_save {
-            let os_str = match path.operating_system {
-                crate::datatype_endpoint::OS::Windows => "windows",
-                crate::datatype_endpoint::OS::Linux => "linux",
-            };
-            let new_path = NewGamePath {
-                path: &path.path,
-                operating_system: os_str,
-                game_metadata_id: inserted_id,
-            };
-            diesel::insert_into(game_path::table)
-                .values(&new_path)
-                .execute(&mut self.pool.get().unwrap())
-                .expect("Error inserting game path");
-        }
+            let inserted_id: Option<i32> = game_metadata::table
+                .select(game_metadata::id)
+                .order(game_metadata::id.desc())
+                .first(connection)?;
+
+            let inserted_id = inserted_id.expect("Inserted id is null");
+
+            for name in &game_metadata.known_name {
+                let new_name = NewGameName {
+                    name,
+                    game_metadata_id: inserted_id,
+                };
+                diesel::insert_into(game_name::table)
+                    .values(&new_name)
+                    .execute(connection)?;
+            }
+
+            for path in &game_metadata.path_to_save {
+                let os_str = match path.operating_system {
+                    crate::datatype_endpoint::OS::Windows => "windows",
+                    crate::datatype_endpoint::OS::Linux => "linux",
+                };
+                let new_path = NewGamePath {
+                    path: &path.path,
+                    operating_system: os_str,
+                    game_metadata_id: inserted_id,
+                };
+                diesel::insert_into(game_path::table)
+                    .values(&new_path)
+                    .execute(connection)?;
+            }
+
+            Ok(())
+        })
     }
 }
