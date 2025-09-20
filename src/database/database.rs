@@ -1,6 +1,6 @@
-use crate::database::datatype_database::{NewGameMetadata, NewGameName, NewGamePath};
-use crate::database::datatype_database_schema::{game_metadata, game_name, game_path};
-use crate::datatype_endpoint::GameMetadata;
+use crate::database::datatype_database::{NewGameExecutable, NewGameMetadata, NewGameName, NewGamePath};
+use crate::database::datatype_database_schema::{game_executable, game_metadata, game_name, game_path};
+use crate::datatype_endpoint::{GameMetadata, OS};
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::sqlite::SqliteConnection;
@@ -68,8 +68,8 @@ impl GameDatabase {
 
             for path in &game_metadata.path_to_save {
                 let os_str = match path.operating_system {
-                    crate::datatype_endpoint::OS::Windows => "windows",
-                    crate::datatype_endpoint::OS::Linux => "linux",
+                    OS::Windows => "windows",
+                    OS::Linux => "linux",
                 };
                 let new_path = NewGamePath {
                     path: &path.path,
@@ -78,6 +78,21 @@ impl GameDatabase {
                 };
                 diesel::insert_into(game_path::table)
                     .values(&new_path)
+                    .execute(connection)?;
+            }
+
+            for executable in &game_metadata.executable {
+                let os_str = match executable.operating_system {
+                    OS::Windows => "windows",
+                    OS::Linux => "linux",
+                };
+                let new_executable = NewGameExecutable {
+                    executable: &executable.executable,
+                    operating_system: os_str,
+                    game_metadata_id: inserted_id,
+                };
+                diesel::insert_into(game_executable::table)
+                    .values(&new_executable)
                     .execute(connection)?;
             }
 

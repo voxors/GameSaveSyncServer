@@ -17,10 +17,10 @@ pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| GameDatabase::new());
         GameMetadata
     ),
     responses(
-        (status = 200, description = "Adding game metadata to the database", body = [String])
+        (status = 201, description = "game metadata created", body = [String])
     )
 )]
-async fn create_game_metadata(Json(payload): Json<GameMetadata>) -> StatusCode {
+async fn post_game_metadata(Json(payload): Json<GameMetadata>) -> StatusCode {
     match DATABASE.add_game_metadata(&payload) {
         Ok(()) => (),
         Err(e) => {
@@ -32,7 +32,7 @@ async fn create_game_metadata(Json(payload): Json<GameMetadata>) -> StatusCode {
 }
 
 #[derive(OpenApi)]
-#[openapi(paths(create_game_metadata), components(schemas(GameMetadata)))]
+#[openapi(paths(post_game_metadata), components(schemas(GameMetadata)))]
 struct ApiDoc;
 
 #[tokio::main]
@@ -41,7 +41,7 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let app = Router::new()
-        .route("/game_metadata", post(create_game_metadata))
+        .route("/games", post(post_game_metadata))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
