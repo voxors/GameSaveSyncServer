@@ -3,7 +3,7 @@ mod datatype_endpoint;
 
 use crate::database::database::GameDatabase;
 use crate::datatype_endpoint::GameMetadata;
-use axum::{Json, Router, http::StatusCode, routing::post};
+use axum::{Json, Router, http::StatusCode, routing::get, routing::post};
 use once_cell::sync::Lazy;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -12,7 +12,7 @@ pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| GameDatabase::new());
 
 #[utoipa::path(
     post,
-    path = "/game_metadata",
+    path = "/games",
     params(
         GameMetadata
     ),
@@ -31,8 +31,30 @@ async fn post_game_metadata(Json(payload): Json<GameMetadata>) -> StatusCode {
     StatusCode::CREATED
 }
 
+#[utoipa::path(
+    get,
+    path = "/games",
+    params(),
+    responses(
+        (status = 200, description = "get all games metadata", body = [String])
+    )
+)]
+async fn get_game_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode> {
+    let game_metadata = match DATABASE.get_games_metadata() {
+        Ok(data) => data,
+        Err(e) => {
+            eprintln!("Error retrieving game metadata: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    Ok(Json(game_metadata))
+}
+
 #[derive(OpenApi)]
-#[openapi(paths(post_game_metadata), components(schemas(GameMetadata)))]
+#[openapi(
+    paths(post_game_metadata, get_game_metadata),
+    components(schemas(GameMetadata))
+)]
 struct ApiDoc;
 
 #[tokio::main]
@@ -42,6 +64,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/games", post(post_game_metadata))
+        .route("/games", get(get_game_metadata))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

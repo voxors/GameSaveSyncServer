@@ -1,4 +1,6 @@
-use crate::database::datatype_database_schema::{game_metadata, game_name, game_path, game_executable};
+use crate::database::datatype_database_schema::{
+    game_executable, game_metadata, game_name, game_path,
+};
 use diesel::Insertable;
 
 #[derive(Insertable)]

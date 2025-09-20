@@ -25,5 +25,5 @@ pub struct GameMetadata {
     pub known_name: Vec<String>,
     pub steam_appid: String,
     pub path_to_save: Vec<Path>,
-    pub executable: Vec<Executable>
+    pub executable: Vec<Executable>,
 }
