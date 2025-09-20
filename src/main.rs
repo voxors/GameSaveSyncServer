@@ -13,9 +13,8 @@ pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| GameDatabase::new());
 #[utoipa::path(
     post,
     path = "/games",
-    params(
-        GameMetadata
-    ),
+    params(),
+    request_body = GameMetadata,
     responses(
         (status = 201, description = "game metadata created", body = [String])
     )

@@ -12,7 +12,8 @@ diesel::table! {
 diesel::table! {
     game_metadata (id) {
         id -> Nullable<Integer>,
-        steam_appid -> Text,
+        internal_name -> Text,
+        steam_appid -> Nullable<Text>,
     }
 }
 

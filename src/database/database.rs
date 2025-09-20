@@ -48,7 +48,8 @@ impl GameDatabase {
 
         connection.immediate_transaction(|connection| {
             let new_game = NewGameMetadata {
-                steam_appid: &game_metadata.steam_appid,
+                steam_appid: game_metadata.steam_appid.as_deref(),
+                internal_name: &game_metadata.internal_name,
             };
             diesel::insert_into(game_metadata::table)
                 .values(&new_game)
@@ -116,8 +117,8 @@ impl GameDatabase {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
-            let metas: Vec<(Option<i32>, String)> = game_metadata::table
-                .select((game_metadata::id, game_metadata::steam_appid))
+            let metas: Vec<(Option<i32>, String, Option<String>)> = game_metadata::table
+                .select((game_metadata::id, game_metadata::internal_name, game_metadata::steam_appid))
                 .load(connection)?;
 
             let name_rows: Vec<(i32, String)> = game_name::table
@@ -169,7 +170,7 @@ impl GameDatabase {
             }
 
             let mut games_metadata: Vec<GameMetadata> = Vec::with_capacity(metas.len());
-            for (maybe_id, steam_appid) in metas {
+            for (maybe_id, internal_name, steam_appid) in metas {
                 let id = maybe_id.unwrap();
                 let known_name = names_by_game.remove(&id).unwrap_or_default();
                 let path_to_save = paths_by_game.remove(&id).unwrap_or_default();
@@ -178,6 +179,7 @@ impl GameDatabase {
                 games_metadata.push(GameMetadata {
                     known_name,
                     steam_appid,
+                    internal_name,
                     path_to_save,
                     executable,
                 });

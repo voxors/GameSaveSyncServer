@@ -23,7 +23,10 @@ pub struct Executable {
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
 pub struct GameMetadata {
     pub known_name: Vec<String>,
-    pub steam_appid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub steam_appid: Option<String>,
+    pub internal_name: String,
     pub path_to_save: Vec<Path>,
     pub executable: Vec<Executable>,
 }
