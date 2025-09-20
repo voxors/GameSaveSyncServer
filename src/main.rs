@@ -3,11 +3,7 @@ mod datatype_endpoint;
 
 use crate::database::database::GameDatabase;
 use crate::datatype_endpoint::GameMetadata;
-use axum::{
-    Json, Router,
-    http::StatusCode,
-    routing::{post},
-};
+use axum::{Json, Router, http::StatusCode, routing::post};
 use once_cell::sync::Lazy;
 
 pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| GameDatabase::new());

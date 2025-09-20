@@ -4,8 +4,8 @@ use crate::datatype_endpoint::GameMetadata;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::sqlite::SqliteConnection;
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use std::fs;
-use diesel_migrations::{MigrationHarness, EmbeddedMigrations, embed_migrations};
 
 pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
 
@@ -47,11 +47,13 @@ impl GameDatabase {
             .expect("Error inserting game metadata");
 
         // Get the inserted id
-        let inserted_id: i32 = game_metadata::table
+        let inserted_id: Option<i32> = game_metadata::table
             .select(game_metadata::id)
             .order(game_metadata::id.desc())
             .first(&mut self.pool.get().unwrap())
             .expect("Failed to get inserted id");
+
+        let inserted_id = inserted_id.expect("Inserted id is null");
 
         // Insert known names
         for name in &game_metadata.known_name {
