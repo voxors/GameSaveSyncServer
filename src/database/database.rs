@@ -40,6 +40,88 @@ impl GameDatabase {
         Self { pool }
     }
 
+    pub fn update_game_metadata_by_internal_name(
+        &self,
+        target_internal_name: &str,
+        game_metadata: &GameMetadata,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        let connection = &mut self.pool.get()?;
+
+        connection.immediate_transaction(|connection| {
+            let maybe_id: Option<i32> = game_metadata::table
+                .filter(game_metadata::internal_name.eq(target_internal_name))
+                .select(game_metadata::id)
+                .first::<Option<i32>>(connection)?;
+
+            let Some(game_id) = maybe_id else {
+                return Ok(false);
+            };
+
+            diesel::update(game_metadata::table.filter(game_metadata::id.eq(game_id)))
+                .set((
+                    game_metadata::internal_name.eq(&game_metadata.internal_name),
+                    game_metadata::steam_appid.eq(game_metadata.steam_appid.as_deref()),
+                ))
+                .execute(connection)?;
+
+            // Replace related collections
+            diesel::delete(game_name::table.filter(game_name::game_metadata_id.eq(game_id)))
+                .execute(connection)?;
+            diesel::delete(game_path::table.filter(game_path::game_metadata_id.eq(game_id)))
+                .execute(connection)?;
+            diesel::delete(
+                game_executable::table.filter(game_executable::game_metadata_id.eq(game_id)),
+            )
+            .execute(connection)?;
+
+            let new_names: Vec<NewGameName> = game_metadata
+                .known_name
+                .iter()
+                .map(|name| NewGameName {
+                    name,
+                    game_metadata_id: game_id,
+                })
+                .collect();
+            diesel::insert_into(game_name::table)
+                .values(&new_names)
+                .execute(connection)?;
+
+            let new_paths: Vec<NewGamePath> = game_metadata
+                .path_to_save
+                .iter()
+                .map(|path| NewGamePath {
+                    path: &*path.path,
+                    operating_system: match path.operating_system {
+                        OS::Windows => "windows",
+                        OS::Linux => "linux",
+                    },
+                    game_metadata_id: game_id,
+                })
+                .collect();
+            diesel::insert_into(game_path::table)
+                .values(&new_paths)
+                .execute(connection)?;
+
+            let new_executables: Vec<NewGameExecutable> = game_metadata
+                .executable
+                .iter()
+                .map(|game_executable| NewGameExecutable {
+                    executable: &*game_executable.executable,
+                    operating_system: match game_executable.operating_system {
+                        OS::Windows => "windows",
+                        OS::Linux => "linux",
+                    },
+                    game_metadata_id: game_id,
+                })
+                .collect();
+            diesel::insert_into(game_executable::table)
+                .values(&new_executables)
+                .execute(connection)?;
+
+            Ok(true)
+        })
+    }
+
     pub fn add_game_metadata(
         &self,
         game_metadata: &GameMetadata,
@@ -113,12 +195,94 @@ impl GameDatabase {
         })
     }
 
+    pub fn get_game_metadata_by_internal_name(
+        &self,
+        internal_name: &str,
+    ) -> Result<Option<GameMetadata>, Box<dyn std::error::Error>> {
+        let connection = &mut self.pool.get()?;
+
+        connection.immediate_transaction(|connection| {
+            let maybe_meta: Option<(Option<i32>, String, Option<String>)> = game_metadata::table
+                .filter(game_metadata::internal_name.eq(internal_name))
+                .select((
+                    game_metadata::id,
+                    game_metadata::internal_name,
+                    game_metadata::steam_appid,
+                ))
+                .first(connection)
+                .optional()?;
+
+            let (id, internal_name, steam_appid) = match maybe_meta {
+                Some(meta) => meta,
+                None => return Ok(None),
+            };
+
+            let id = match id {
+                Some(id) => id,
+                None => return Ok(None),
+            };
+
+            let name_rows: Vec<String> = game_name::table
+                .filter(game_name::game_metadata_id.eq(id))
+                .select(game_name::name)
+                .load(connection)?;
+
+            let path_rows: Vec<(String, String)> = game_path::table
+                .filter(game_path::game_metadata_id.eq(id))
+                .select((game_path::path, game_path::operating_system))
+                .load(connection)?;
+            let mut paths: Vec<Path> = Vec::with_capacity(path_rows.len());
+            for (path, os_str) in path_rows {
+                let os = match os_str.as_str() {
+                    "windows" => OS::Windows,
+                    "linux" => OS::Linux,
+                    _ => continue,
+                };
+                paths.push(Path {
+                    path,
+                    operating_system: os,
+                });
+            }
+
+            let exec_rows: Vec<(String, String)> = game_executable::table
+                .filter(game_executable::game_metadata_id.eq(id))
+                .select((
+                    game_executable::executable,
+                    game_executable::operating_system,
+                ))
+                .load(connection)?;
+            let mut executables: Vec<Executable> = Vec::with_capacity(exec_rows.len());
+            for (executable, os_str) in exec_rows {
+                let os = match os_str.as_str() {
+                    "windows" => OS::Windows,
+                    "linux" => OS::Linux,
+                    _ => continue,
+                };
+                executables.push(Executable {
+                    executable,
+                    operating_system: os,
+                });
+            }
+
+            Ok(Some(GameMetadata {
+                known_name: name_rows,
+                steam_appid,
+                internal_name,
+                path_to_save: paths,
+                executable: executables,
+            }))
+        })
+    }
     pub fn get_games_metadata(&self) -> Result<Vec<GameMetadata>, Box<dyn std::error::Error>> {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
             let metas: Vec<(Option<i32>, String, Option<String>)> = game_metadata::table
-                .select((game_metadata::id, game_metadata::internal_name, game_metadata::steam_appid))
+                .select((
+                    game_metadata::id,
+                    game_metadata::internal_name,
+                    game_metadata::steam_appid,
+                ))
                 .load(connection)?;
 
             let name_rows: Vec<(i32, String)> = game_name::table
