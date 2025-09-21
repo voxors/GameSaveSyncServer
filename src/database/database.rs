@@ -136,7 +136,7 @@ impl GameDatabase {
         connection.immediate_transaction(|connection| {
             let new_game = NewGameMetadata {
                 steam_appid: game_metadata.steam_appid.as_deref(),
-                default_name: game_metadata.default_name.as_deref(),
+                default_name: &game_metadata.default_name,
             };
             diesel::insert_into(game_metadata::table)
                 .values(&new_game)
@@ -207,7 +207,7 @@ impl GameDatabase {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
-            let maybe_meta: Option<(Option<i32>, Option<String>, Option<String>)> =
+            let maybe_meta: Option<(Option<i32>, String, Option<String>)> =
                 game_metadata::table
                     .filter(game_metadata::id.eq(target_id))
                     .select((
@@ -286,7 +286,7 @@ impl GameDatabase {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
-            let metas: Vec<(Option<i32>, Option<String>, Option<String>)> = game_metadata::table
+            let metas: Vec<(Option<i32>, String, Option<String>)> = game_metadata::table
                 .select((
                     game_metadata::id,
                     game_metadata::default_name,

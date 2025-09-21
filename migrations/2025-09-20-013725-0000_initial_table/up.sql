@@ -1,7 +1,7 @@
 -- Your SQL goes here
 CREATE TABLE game_metadata (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    default_name TEXT,
+    default_name TEXT NOT NULL,
     steam_appid TEXT
     );
 

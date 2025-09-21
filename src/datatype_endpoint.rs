@@ -26,7 +26,7 @@ pub struct GameMetadataCreate {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = false, nullable)]
     pub steam_appid: Option<String>,
-    pub default_name: Option<String>,
+    pub default_name: String,
     pub path_to_save: Vec<Path>,
     pub executable: Vec<Executable>,
 }

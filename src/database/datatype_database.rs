@@ -7,7 +7,7 @@ use diesel::Insertable;
 #[diesel(table_name = game_metadata)]
 pub struct NewGameMetadata<'a> {
     pub steam_appid: Option<&'a str>,
-    pub default_name: Option<&'a str>,
+    pub default_name: &'a str,
 }
 
 #[derive(Insertable)]
