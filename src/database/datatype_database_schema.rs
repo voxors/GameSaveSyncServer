@@ -1,8 +1,7 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    game_executable (id) {
-        id -> Nullable<Integer>,
+    game_executable (executable, operating_system, game_metadata_id) {
         executable -> Text,
         operating_system -> Text,
         game_metadata_id -> Integer,
@@ -18,16 +17,14 @@ diesel::table! {
 }
 
 diesel::table! {
-    game_name (id) {
-        id -> Nullable<Integer>,
+    game_name (name, game_metadata_id) {
         name -> Text,
         game_metadata_id -> Integer,
     }
 }
 
 diesel::table! {
-    game_path (id) {
-        id -> Nullable<Integer>,
+    game_path (path, operating_system, game_metadata_id) {
         path -> Text,
         operating_system -> Text,
         game_metadata_id -> Integer,
