@@ -24,7 +24,8 @@ diesel::table! {
 }
 
 diesel::table! {
-    game_path (path, operating_system, game_metadata_id) {
+    game_path (id) {
+        id -> Nullable<Integer>,
         path -> Text,
         operating_system -> Text,
         game_metadata_id -> Integer,
