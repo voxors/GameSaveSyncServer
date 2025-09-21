@@ -1,5 +1,5 @@
 use crate::database::datatype_database_schema::{
-    game_executable, game_metadata, game_name, game_path,
+    game_alt_name, game_executable, game_metadata, game_path,
 };
 use diesel::Insertable;
 
@@ -7,11 +7,11 @@ use diesel::Insertable;
 #[diesel(table_name = game_metadata)]
 pub struct NewGameMetadata<'a> {
     pub steam_appid: Option<&'a str>,
-    pub internal_name: &'a str,
+    pub default_name: Option<&'a str>,
 }
 
 #[derive(Insertable)]
-#[diesel(table_name = game_name)]
+#[diesel(table_name = game_alt_name)]
 pub struct NewGameName<'a> {
     pub name: &'a str,
     pub game_metadata_id: i32,

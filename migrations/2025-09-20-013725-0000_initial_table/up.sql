@@ -1,11 +1,11 @@
 -- Your SQL goes here
 CREATE TABLE game_metadata (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    internal_name TEXT NOT NULL,
+    default_name TEXT,
     steam_appid TEXT
     );
 
-CREATE TABLE game_name (
+CREATE TABLE game_alt_name (
    name TEXT NOT NULL,
    game_metadata_id INTEGER NOT NULL,
    PRIMARY KEY (name, game_metadata_id),

@@ -2,7 +2,7 @@ mod database;
 mod datatype_endpoint;
 
 use crate::database::database::GameDatabase;
-use crate::datatype_endpoint::GameMetadata;
+use crate::datatype_endpoint::{GameMetadata, GameMetadataCreate};
 use axum::{
     Json, Router, extract::Path, http::StatusCode, routing::get, routing::post, routing::put,
 };
@@ -16,12 +16,12 @@ pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| GameDatabase::new());
     post,
     path = "/games",
     params(),
-    request_body = GameMetadata,
+    request_body = GameMetadataCreate,
     responses(
         (status = 201, description = "game metadata created", body = [String])
     )
 )]
-async fn post_game_metadata(Json(payload): Json<GameMetadata>) -> StatusCode {
+async fn post_game_metadata(Json(payload): Json<GameMetadataCreate>) -> StatusCode {
     match DATABASE.add_game_metadata(&payload) {
         Ok(()) => StatusCode::CREATED,
         Err(e) => {
@@ -51,9 +51,9 @@ async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode> {
 
 #[utoipa::path(
     put,
-    path = "/games/{internal_name}",
+    path = "/games/{Id}",
     params(
-        ("internal_name" = String, Path, description = "Internal name of the game to update")
+        ("Id" = String, Path, description = "Id of the game to update")
     ),
     request_body = GameMetadata,
     responses(
@@ -61,11 +61,8 @@ async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode> {
         (status = 404, description = "game not found")
     )
 )]
-async fn put_game_metadata(
-    Path(internal_name): Path<String>,
-    Json(payload): Json<GameMetadata>,
-) -> StatusCode {
-    match DATABASE.update_game_metadata_by_internal_name(&internal_name, &payload) {
+async fn put_game_metadata(Path(id): Path<i32>, Json(payload): Json<GameMetadata>) -> StatusCode {
+    match DATABASE.update_game_metadata_by_id(&id, &payload) {
         Ok(true) => StatusCode::NO_CONTENT,
         Ok(false) => StatusCode::NOT_FOUND,
         Err(e) => {
@@ -77,19 +74,17 @@ async fn put_game_metadata(
 
 #[utoipa::path(
     get,
-    path = "/games/{internal_name}",
+    path = "/games/{Id}",
     params(
-        ("internal_name" = String, Path, description = "Internal name of the game")
+        ("Id" = String, Path, description = "Id of the game")
     ),
     responses(
-        (status = 200, description = "game metadata return"),
+        (status = 200, description = "game metadata returned"),
         (status = 404, description = "game not found")
     )
 )]
-async fn get_game_metadata(
-    Path(internal_name): Path<String>
-) -> Result<Json<GameMetadata>, StatusCode> {
-    match DATABASE.get_game_metadata_by_internal_name(&internal_name) {
+async fn get_game_metadata(Path(id): Path<i32>) -> Result<Json<GameMetadata>, StatusCode> {
+    match DATABASE.get_game_metadata_by_id(&id) {
         Ok(Some(data)) => Ok(Json(data)),
         Ok(None) => Err(StatusCode::NOT_FOUND),
         Err(e) => {
@@ -101,7 +96,12 @@ async fn get_game_metadata(
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(post_game_metadata, get_game_metadata, get_games_metadata, put_game_metadata),
+    paths(
+        post_game_metadata,
+        get_game_metadata,
+        get_games_metadata,
+        put_game_metadata
+    ),
     components(schemas(GameMetadata))
 )]
 struct ApiDoc;
@@ -114,8 +114,8 @@ async fn main() {
     let app = Router::new()
         .route("/games", post(post_game_metadata))
         .route("/games", get(get_games_metadata))
-        .route("/games/{internal_name}", put(put_game_metadata))
-        .route("/games/{internal_name}", get(get_game_metadata))
+        .route("/games/{Id}", put(put_game_metadata))
+        .route("/games/{Id}", get(get_game_metadata))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

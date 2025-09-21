@@ -20,13 +20,19 @@ pub struct Executable {
     pub operating_system: OS,
 }
 
-#[derive(Serialize, Deserialize, ToSchema, IntoParams)]
-pub struct GameMetadata {
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct GameMetadataCreate {
     pub known_name: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = false, nullable)]
     pub steam_appid: Option<String>,
-    pub internal_name: String,
+    pub default_name: Option<String>,
     pub path_to_save: Vec<Path>,
     pub executable: Vec<Executable>,
+}
+#[derive(Serialize, Deserialize, ToSchema, IntoParams)]
+pub struct GameMetadata {
+    pub id: Option<i32>,
+    #[serde(flatten)]
+    pub metadata: GameMetadataCreate,
 }
