@@ -9,9 +9,15 @@ pub enum OS {
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
-pub struct Path {
+pub struct SavePathCreate {
     pub path: String,
     pub operating_system: OS,
+}
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct SavePath {
+    pub id: Option<i32>,
+    #[serde(flatten)]
+    pub path: SavePathCreate,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
@@ -27,8 +33,6 @@ pub struct GameMetadataCreate {
     #[schema(required = false, nullable)]
     pub steam_appid: Option<String>,
     pub default_name: String,
-    pub path_to_save: Vec<Path>,
-    pub executable: Vec<Executable>,
 }
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
 pub struct GameMetadata {
