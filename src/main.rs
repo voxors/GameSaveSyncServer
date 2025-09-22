@@ -96,7 +96,7 @@ async fn get_game_paths(Path(id): Path<i32>) -> Result<Json<Vec<SavePath>>, Stat
     path = "/games/{Id}/paths/{OS}",
     params(
         ("Id" = String, Path, description = "Id of the game"),
-        ("OS" = String, Path, description = "Operating system (windows or linux)")
+        ("OS" = OS, Path, description = "Operating system [OS]")
     ),
     responses(
         (status = 200, description = "game paths returned", body = [Vec<String>]),
@@ -104,15 +104,7 @@ async fn get_game_paths(Path(id): Path<i32>) -> Result<Json<Vec<SavePath>>, Stat
         (status = 404, description = "game not found")
     )
 )]
-async fn get_game_paths_by_os(Path((id, os)): Path<(i32, String)>) -> Result<Json<Vec<String>>, StatusCode> {
-    let os = match os.as_str() {
-        "windows" => OS::Windows,
-        "linux" => OS::Linux,
-        _ => {
-            eprintln!("Unsupported operating system: {}", os);
-            return Err(StatusCode::BAD_REQUEST);
-        }
-    };
+async fn get_game_paths_by_os(Path((id, os)): Path<(i32, OS)>) -> Result<Json<Vec<String>>, StatusCode> {
     match DATABASE.get_paths_by_game_id_and_os(id,os) {
         Ok(data) => Ok(Json(data)),
         Err(e) => {
