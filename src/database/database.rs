@@ -5,7 +5,7 @@ use crate::database::datatype_database_schema::{
     game_alt_name, game_executable, game_metadata, game_path,
 };
 use crate::datatype_endpoint::{
-    Executable, GameMetadata, GameMetadataCreate, OS, SavePath, SavePathCreate,
+    Executable, ExecutableCreate, GameMetadata, GameMetadataCreate, OS, SavePath, SavePathCreate,
 };
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -140,26 +140,22 @@ impl GameDatabase {
 
         Ok(games)
     }
-    
+
     pub fn add_game_path(
         &self,
         game_id: i32,
         path: &SavePathCreate,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let connection = &mut self.pool.get()?;
-        let os_str = match path.operating_system {
-            OS::Windows => "windows",
-            OS::Linux => "linux",
-        };
+
         let new_path = NewGamePath {
             path: &path.path,
-            operating_system: os_str,
+            operating_system: &path.operating_system,
             game_metadata_id: game_id,
         };
         diesel::insert_into(game_path::table)
             .values(&new_path)
             .execute(connection)?;
-
         Ok(())
     }
     pub fn get_paths_by_game_id_and_os(
@@ -168,13 +164,9 @@ impl GameDatabase {
         os: OS,
     ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         let connection = &mut self.pool.get()?;
-        let os_str = match os {
-            OS::Windows => "windows",
-            OS::Linux => "linux",
-        };
         let paths: Vec<String> = game_path::table
             .filter(game_path::game_metadata_id.eq(game_id))
-            .filter(game_path::operating_system.eq(os_str))
+            .filter(game_path::operating_system.eq(os))
             .select(game_path::path)
             .load(connection)?;
         Ok(paths)
@@ -185,17 +177,12 @@ impl GameDatabase {
         game_id: i32,
     ) -> Result<Vec<SavePath>, Box<dyn std::error::Error>> {
         let connection = &mut self.pool.get()?;
-        let path_rows: Vec<(Option<i32>, String, String)> = game_path::table
+        let path_rows: Vec<(Option<i32>, String, OS)> = game_path::table
             .filter(game_path::game_metadata_id.eq(game_id))
             .select((game_path::id, game_path::path, game_path::operating_system))
             .load(connection)?;
         let mut paths: Vec<SavePath> = Vec::with_capacity(path_rows.len());
-        for (id, path, os_str) in path_rows {
-            let os = match os_str.as_str() {
-                "windows" => OS::Windows,
-                "linux" => OS::Linux,
-                _ => continue,
-            };
+        for (id, path, os) in path_rows {
             paths.push(SavePath {
                 id,
                 path: SavePathCreate {
@@ -204,7 +191,63 @@ impl GameDatabase {
                 },
             });
         }
-
         Ok(paths)
+    }
+
+    pub fn add_game_executable(
+        &self,
+        game_id: i32,
+        executable: &ExecutableCreate,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let connection = &mut self.pool.get()?;
+
+        let new_executable = NewGameExecutable {
+            executable: &executable.executable,
+            operating_system: &executable.operating_system,
+            game_metadata_id: game_id,
+        };
+        diesel::insert_into(game_executable::table)
+            .values(&new_executable)
+            .execute(connection)?;
+        Ok(())
+    }
+    pub fn get_executable_by_game_id_and_os(
+        &self,
+        game_id: i32,
+        os: OS,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let connection = &mut self.pool.get()?;
+        let paths: Vec<String> = game_executable::table
+            .filter(game_executable::game_metadata_id.eq(game_id))
+            .filter(game_executable::operating_system.eq(os))
+            .select(game_executable::executable)
+            .load(connection)?;
+        Ok(paths)
+    }
+
+    pub fn get_executable_by_game_id(
+        &self,
+        game_id: i32,
+    ) -> Result<Vec<Executable>, Box<dyn std::error::Error>> {
+        let connection = &mut self.pool.get()?;
+        let executable_rows: Vec<(Option<i32>, String, OS)> = game_executable::table
+            .filter(game_executable::game_metadata_id.eq(game_id))
+            .select((
+                game_executable::id,
+                game_executable::executable,
+                game_executable::operating_system,
+            ))
+            .load(connection)?;
+        let mut executables: Vec<Executable> = Vec::with_capacity(executable_rows.len());
+        for (id, executable, os) in executable_rows {
+            executables.push(Executable {
+                id,
+                executable: ExecutableCreate {
+                    executable,
+                    operating_system: os,
+                },
+            });
+        }
+        Ok(executables)
     }
 }

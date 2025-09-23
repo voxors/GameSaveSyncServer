@@ -8,7 +8,8 @@ diesel::table! {
 }
 
 diesel::table! {
-    game_executable (executable, operating_system, game_metadata_id) {
+    game_executable (id) {
+        id -> Nullable<Integer>,
         executable -> Text,
         operating_system -> Text,
         game_metadata_id -> Integer,

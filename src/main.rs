@@ -2,10 +2,10 @@ mod database;
 mod datatype_endpoint;
 
 use crate::database::database::GameDatabase;
-use crate::datatype_endpoint::{GameMetadata, GameMetadataCreate, SavePath, SavePathCreate, OS};
-use axum::{
-    Json, Router, extract::Path, http::StatusCode, routing::get, routing::post, routing::put,
+use crate::datatype_endpoint::{
+    Executable, ExecutableCreate, GameMetadata, GameMetadataCreate, OS, SavePath, SavePathCreate,
 };
+use axum::{Json, Router, extract::Path, http::StatusCode, routing::get, routing::post};
 use once_cell::sync::Lazy;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -104,8 +104,10 @@ async fn get_game_paths(Path(id): Path<i32>) -> Result<Json<Vec<SavePath>>, Stat
         (status = 404, description = "game not found")
     )
 )]
-async fn get_game_paths_by_os(Path((id, os)): Path<(i32, OS)>) -> Result<Json<Vec<String>>, StatusCode> {
-    match DATABASE.get_paths_by_game_id_and_os(id,os) {
+async fn get_game_paths_by_os(
+    Path((id, os)): Path<(i32, OS)>,
+) -> Result<Json<Vec<String>>, StatusCode> {
+    match DATABASE.get_paths_by_game_id_and_os(id, os) {
         Ok(data) => Ok(Json(data)),
         Err(e) => {
             eprintln!("Error getting game paths: {}", e);
@@ -135,10 +137,87 @@ async fn post_game_path(Path(id): Path<i32>, Json(payload): Json<SavePathCreate>
     }
 }
 
-#[derive(OpenApi)]
-#[openapi(
-    paths(post_game_metadata, get_game_metadata, get_games_metadata, get_game_paths, post_game_path, get_game_paths_by_os),
+#[utoipa::path(
+    get,
+    path = "/games/{Id}/executables",
+    params(
+        ("Id" = String, Path, description = "Id of the game")
+    ),
+    responses(
+        (status = 200, description = "game executables returned", body = [Vec<Executable>]),
+    )
 )]
+async fn get_game_executables(Path(id): Path<i32>) -> Result<Json<Vec<Executable>>, StatusCode> {
+    match DATABASE.get_executable_by_game_id(id) {
+        Ok(data) => Ok(Json(data)),
+        Err(e) => {
+            eprintln!("Error getting game paths: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/games/{Id}/executables/{OS}",
+    params(
+        ("Id" = String, Path, description = "Id of the game"),
+        ("OS" = OS, Path, description = "Operating system [OS]")
+    ),
+    responses(
+        (status = 200, description = "game executables returned", body = [Vec<String>]),
+        (status = 400, description = "invalid operating system"),
+        (status = 404, description = "game not found")
+    )
+)]
+async fn get_game_executables_by_os(
+    Path((id, os)): Path<(i32, OS)>,
+) -> Result<Json<Vec<String>>, StatusCode> {
+    match DATABASE.get_executable_by_game_id_and_os(id, os) {
+        Ok(data) => Ok(Json(data)),
+        Err(e) => {
+            eprintln!("Error getting game paths: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/games/{Id}/executables",
+    params(
+        ("Id" = String, Path, description = "Id of the game"),
+    ),
+    request_body = ExecutableCreate,
+    responses(
+        (status = 201, description = "game executable created"),
+    )
+)]
+async fn post_game_executable(
+    Path(id): Path<i32>,
+    Json(payload): Json<ExecutableCreate>,
+) -> StatusCode {
+    match DATABASE.add_game_executable(id, &payload) {
+        Ok(()) => StatusCode::CREATED,
+        Err(e) => {
+            eprintln!("Error adding game path: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
+}
+
+#[derive(OpenApi)]
+#[openapi(paths(
+    post_game_metadata,
+    get_game_metadata,
+    get_games_metadata,
+    get_game_paths,
+    post_game_path,
+    get_game_paths_by_os,
+    get_game_executables,
+    get_game_executables_by_os,
+    post_game_executable
+))]
 struct ApiDoc;
 
 #[tokio::main]
@@ -153,6 +232,12 @@ async fn main() {
         .route("/games/{Id}/paths", get(get_game_paths))
         .route("/games/{Id}/paths", post(post_game_path))
         .route("/games/{Id}/paths/{OS}", get(get_game_paths_by_os))
+        .route("/games/{Id}/executables", get(get_game_executables))
+        .route("/games/{Id}/executables", post(post_game_executable))
+        .route(
+            "/games/{Id}/executables/{OS}",
+            get(get_game_executables_by_os),
+        )
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
