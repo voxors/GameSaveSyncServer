@@ -4,11 +4,13 @@ mod datatype_endpoint;
 use crate::database::database::GameDatabase;
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, GameMetadata, GameMetadataCreate, OS, SavePath, SavePathCreate,
+    SaveReference,
 };
 use axum::{Json, Router, extract::Path, http::StatusCode, routing::get, routing::post};
 use once_cell::sync::Lazy;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use uuid::Uuid;
 
 pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| GameDatabase::new());
 
@@ -206,6 +208,57 @@ async fn post_game_executable(
     }
 }
 
+#[utoipa::path(
+    get,
+    path ="/games/{Id}/paths/{Id}/saves",
+    params(
+        ("Id" = String, Path, description = "Id of the game"),
+        ("Id" = String, Path, description = "Id of the path")
+    ),
+    responses(
+        (status = 200, description = "game saves returned", body = [Vec<SaveReference>]),
+        (status = 400, description = "invalid operating system"),
+        (status = 404, description = "game not found")
+    )
+)]
+async fn get_game_saves_reference_by_path_id(
+    Path((_game_id, path_id)): Path<(i32, i32)>,
+) -> Result<Json<Vec<SaveReference>>, StatusCode> {
+    match DATABASE.get_reference_to_save_by_path_id(path_id) {
+        Ok(Some(data)) => Ok(Json(data)),
+        Ok(None) => Err(StatusCode::NOT_FOUND),
+        Err(e) => {
+            eprintln!("Error getting game saves reference: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/games/{Id}/paths/{Id}/saves",
+    params(
+        ("Id" = String, Path, description = "Id of the game"),
+        ("Id" = String, Path, description = "Id of the path")
+    ),
+    responses(
+        (status = 201, description = "game saves reference created", body = [Vec<SaveReference>]),
+        (status = 400, description = "invalid operating system"),
+        (status = 404, description = "game not found")
+    )
+)]
+async fn post_game_saves_reference_by_path_id(
+    Path((_game_id, path_id)): Path<(i32, i32)>,
+) -> StatusCode {
+    match DATABASE.add_reference_to_save(Uuid::new_v4(), path_id) {
+        Ok(()) => StatusCode::CREATED,
+        Err(e) => {
+            eprintln!("Error adding game save reference: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
+}
+
 #[derive(OpenApi)]
 #[openapi(paths(
     post_game_metadata,
@@ -216,7 +269,9 @@ async fn post_game_executable(
     get_game_paths_by_os,
     get_game_executables,
     get_game_executables_by_os,
-    post_game_executable
+    post_game_executable,
+    get_game_saves_reference_by_path_id,
+    post_game_saves_reference_by_path_id,
 ))]
 struct ApiDoc;
 
@@ -232,6 +287,14 @@ async fn main() {
         .route("/games/{Id}/paths", get(get_game_paths))
         .route("/games/{Id}/paths", post(post_game_path))
         .route("/games/{Id}/paths/{OS}", get(get_game_paths_by_os))
+        .route(
+            "/games/{Id}/paths/{Id}/saves",
+            get(get_game_saves_reference_by_path_id),
+        )
+        .route(
+            "/games/{Id}/paths/{Id}/saves",
+            post(post_game_saves_reference_by_path_id),
+        )
         .route("/games/{Id}/executables", get(get_game_executables))
         .route("/games/{Id}/executables", post(post_game_executable))
         .route(

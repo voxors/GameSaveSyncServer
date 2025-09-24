@@ -33,13 +33,23 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    game_save (uuid) {
+        uuid -> Text,
+        path_id -> Integer,
+        time -> Timestamp,
+    }
+}
+
 diesel::joinable!(game_alt_name -> game_metadata (game_metadata_id));
 diesel::joinable!(game_executable -> game_metadata (game_metadata_id));
 diesel::joinable!(game_path -> game_metadata (game_metadata_id));
+diesel::joinable!(game_save -> game_path (path_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     game_alt_name,
     game_executable,
     game_metadata,
     game_path,
+    game_save,
 );

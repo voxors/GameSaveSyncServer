@@ -1,5 +1,5 @@
 use crate::database::datatype_database_schema::{
-    game_alt_name, game_executable, game_metadata, game_path,
+    game_alt_name, game_executable, game_metadata, game_path, game_save,
 };
 use crate::datatype_endpoint::OS;
 use diesel::{Insertable, Queryable, Selectable};
@@ -32,4 +32,12 @@ pub struct NewGamePath<'a> {
     pub path: &'a str,
     pub operating_system: &'a OS,
     pub game_metadata_id: i32,
+}
+
+#[derive(Insertable, Selectable, Queryable)]
+#[diesel(table_name = game_save)]
+pub struct NewGameSave<'a> {
+    pub uuid: &'a str,
+    pub path_id: i32,
+    pub time: time::PrimitiveDateTime,
 }

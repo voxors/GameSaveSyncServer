@@ -30,3 +30,10 @@ CREATE TABLE game_executable (
     UNIQUE (executable, operating_system, game_metadata_id),
     FOREIGN KEY(game_metadata_id) REFERENCES game_metadata(id)
     );
+
+CREATE TABLE game_save (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    path_id INTEGER NOT NULL,
+    time TIMESTAMP NOT NULL,
+    FOREIGN KEY(path_id) REFERENCES game_path(id)
+    );

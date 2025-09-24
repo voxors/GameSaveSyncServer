@@ -1,20 +1,21 @@
 use crate::database::datatype_database::{
-    NewGameExecutable, NewGameMetadata, NewGameName, NewGamePath,
+    NewGameExecutable, NewGameMetadata, NewGameName, NewGamePath, NewGameSave,
 };
 use crate::database::datatype_database_schema::{
-    game_alt_name, game_executable, game_metadata, game_path,
+    game_alt_name, game_executable, game_metadata, game_path, game_save,
 };
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, GameMetadata, GameMetadataCreate, OS, SavePath, SavePathCreate,
+    SaveReference,
 };
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use std::fs;
+use uuid::Uuid;
 
 pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
-
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 pub struct GameDatabase {
@@ -48,12 +49,11 @@ impl GameDatabase {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
-            let new_game = NewGameMetadata {
-                steam_appid: game_metadata.steam_appid.as_deref(),
-                default_name: &game_metadata.default_name,
-            };
             diesel::insert_into(game_metadata::table)
-                .values(&new_game)
+                .values(NewGameMetadata {
+                    steam_appid: game_metadata.steam_appid.as_deref(),
+                    default_name: &game_metadata.default_name,
+                })
                 .execute(connection)?;
 
             let inserted_id: Option<i32> = game_metadata::table
@@ -61,19 +61,22 @@ impl GameDatabase {
                 .order(game_metadata::id.desc())
                 .first(connection)?;
 
-            let inserted_id = inserted_id.expect("Inserted id is null");
-
-            let new_names: Vec<NewGameName> = game_metadata
-                .known_name
-                .iter()
-                .map(|name| NewGameName {
-                    name,
-                    game_metadata_id: inserted_id,
-                })
-                .collect();
+            let inserted_id = match inserted_id {
+                Some(id) => id,
+                None => return Err("Failed to get inserted id".into()),
+            };
 
             diesel::insert_into(game_alt_name::table)
-                .values(&new_names)
+                .values(
+                    game_metadata
+                        .known_name
+                        .iter()
+                        .map(|name| NewGameName {
+                            name,
+                            game_metadata_id: inserted_id,
+                        })
+                        .collect::<Vec<_>>(),
+                )
                 .execute(connection)?;
 
             Ok(())
@@ -148,13 +151,12 @@ impl GameDatabase {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let connection = &mut self.pool.get()?;
 
-        let new_path = NewGamePath {
-            path: &path.path,
-            operating_system: &path.operating_system,
-            game_metadata_id: game_id,
-        };
         diesel::insert_into(game_path::table)
-            .values(&new_path)
+            .values(NewGamePath {
+                path: &path.path,
+                operating_system: &path.operating_system,
+                game_metadata_id: game_id,
+            })
             .execute(connection)?;
         Ok(())
     }
@@ -200,14 +202,12 @@ impl GameDatabase {
         executable: &ExecutableCreate,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let connection = &mut self.pool.get()?;
-
-        let new_executable = NewGameExecutable {
-            executable: &executable.executable,
-            operating_system: &executable.operating_system,
-            game_metadata_id: game_id,
-        };
         diesel::insert_into(game_executable::table)
-            .values(&new_executable)
+            .values(NewGameExecutable {
+                executable: &executable.executable,
+                operating_system: &executable.operating_system,
+                game_metadata_id: game_id,
+            })
             .execute(connection)?;
         Ok(())
     }
@@ -249,5 +249,47 @@ impl GameDatabase {
             });
         }
         Ok(executables)
+    }
+
+    pub fn add_reference_to_save(
+        &self,
+        uuid: Uuid,
+        path_id: i32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let connection = &mut self.pool.get()?;
+        let now = time::OffsetDateTime::now_utc();
+        diesel::insert_into(game_save::table)
+            .values(NewGameSave {
+                uuid: &uuid.to_string(),
+                path_id,
+                time: time::PrimitiveDateTime::new(now.date(), now.time()),
+            })
+            .execute(connection)?;
+        Ok(())
+    }
+
+    pub fn get_reference_to_save_by_path_id(
+        &self,
+        path_id: i32,
+    ) -> Result<Option<Vec<SaveReference>>, Box<dyn std::error::Error>> {
+        let connection = &mut self.pool.get()?;
+
+        let save_rows: Vec<(String, time::PrimitiveDateTime)> = game_save::table
+            .filter(game_save::path_id.eq(path_id))
+            .select((game_save::uuid, game_save::time))
+            .load(connection)?;
+
+        if save_rows.is_empty() { return Ok(None) }
+
+        let mut save_references: Vec<SaveReference> = Vec::with_capacity(save_rows.len());
+        for (uuid, time) in save_rows {
+            save_references.push(SaveReference {
+                uuid,
+                path_id,
+                time: time.assume_utc().unix_timestamp() as i64,
+            })
+        }
+
+        Ok(Some(save_references))
     }
 }

@@ -82,3 +82,10 @@ pub struct GameMetadata {
     #[serde(flatten)]
     pub metadata: GameMetadataCreate,
 }
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct SaveReference {
+    pub uuid: String,
+    pub path_id: i32,
+    pub time: i64,
+}
