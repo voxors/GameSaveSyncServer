@@ -1,7 +1,6 @@
 mod database;
 mod datatype_endpoint;
 
-use std::fs;
 use crate::database::database_interface::GameDatabase;
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, GameMetadata, GameMetadataCreate, OS, SavePath, SavePathCreate,
@@ -9,6 +8,7 @@ use crate::datatype_endpoint::{
 };
 use axum::{Json, Router, extract::Path, http::StatusCode, routing::get, routing::post};
 use once_cell::sync::Lazy;
+use std::fs;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use uuid::Uuid;

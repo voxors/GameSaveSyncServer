@@ -274,7 +274,9 @@ impl GameDatabase {
             .select((game_save::uuid, game_save::time))
             .load(connection)?;
 
-        if save_rows.is_empty() { return Ok(None) }
+        if save_rows.is_empty() {
+            return Ok(None);
+        }
 
         let mut save_references: Vec<SaveReference> = Vec::with_capacity(save_rows.len());
         for (uuid, time) in save_rows {
