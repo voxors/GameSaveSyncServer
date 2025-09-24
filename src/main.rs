@@ -1,7 +1,8 @@
 mod database;
 mod datatype_endpoint;
 
-use crate::database::database::GameDatabase;
+use std::fs;
+use crate::database::database_interface::GameDatabase;
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, GameMetadata, GameMetadataCreate, OS, SavePath, SavePathCreate,
     SaveReference,
@@ -12,7 +13,13 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use uuid::Uuid;
 
-pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| GameDatabase::new());
+pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| {
+    let data_dir = "./data";
+    let db_path = format!("{}/database.sqlite", data_dir);
+
+    fs::create_dir_all(data_dir).expect("Failed to create data directory");
+    GameDatabase::new(&db_path)
+});
 
 #[utoipa::path(
     post,

@@ -12,7 +12,6 @@ use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
-use std::fs;
 use uuid::Uuid;
 
 pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
@@ -23,12 +22,8 @@ pub struct GameDatabase {
 }
 
 impl GameDatabase {
-    pub fn new() -> Self {
-        let data_dir = "./data/";
-        let db_path = format!("{}/database.sqlite", data_dir);
-
-        fs::create_dir_all(data_dir).expect("Failed to create data directory");
-        let manager = ConnectionManager::<SqliteConnection>::new(&db_path);
+    pub fn new(db_path: &str) -> Self {
+        let manager = ConnectionManager::<SqliteConnection>::new(db_path);
         let pool = Pool::builder()
             .build(manager)
             .expect("Failed to create pool");
@@ -286,7 +281,7 @@ impl GameDatabase {
             save_references.push(SaveReference {
                 uuid,
                 path_id,
-                time: time.assume_utc().unix_timestamp() as i64,
+                time: time.assume_utc().unix_timestamp(),
             })
         }
 
