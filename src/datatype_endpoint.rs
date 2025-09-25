@@ -6,6 +6,13 @@ use diesel::{AsExpression, FromSqlRow, deserialize, serialize};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
+#[derive(ToSchema)]
+#[allow(unused)]
+pub struct UploadedFile {
+    #[schema(value_type = String, format = Binary)]
+    file: Vec<u8>,
+}
+
 #[derive(
     Serialize, Deserialize, ToSchema, Debug, Clone, Copy, PartialEq, Eq, AsExpression, FromSqlRow,
 )]

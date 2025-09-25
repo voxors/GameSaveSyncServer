@@ -15,4 +15,5 @@ utoipa = { version = "5.4.0", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
 time = { version = "0.3.44", features = ["serde"] }
 uuid = { version = "1.18.1", features = ["v4"] }
+const_format = "0.2.34"
 
