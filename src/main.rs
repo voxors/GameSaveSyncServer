@@ -1,30 +1,28 @@
 mod database;
 mod datatype_endpoint;
+mod file_system;
 
 use crate::database::database_interface::GameDatabase;
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, GameMetadata, GameMetadataCreate, OS, SavePath, SavePathCreate,
     SaveReference, UploadedFile,
 };
-use axum::extract::Multipart;
+use crate::file_system::write_file_to_data;
+use axum::extract::{DefaultBodyLimit, Multipart};
 use axum::{Json, Router, extract::Path, http::StatusCode, routing::get, routing::post};
 use const_format::concatcp;
 use once_cell::sync::Lazy;
 use std::fs;
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use uuid::Uuid;
 
 const DATA_DIR: &str = "./data";
 const SAVE_DIR: &str = concatcp!(DATA_DIR, "/saves");
-const TMP_DIR: &str = "./tmp";
+const TMP_DIR: &str = concatcp!(DATA_DIR, "/tmp");
 
 pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| {
     let db_path = format!("{}/database.sqlite", DATA_DIR);
-
-    fs::create_dir_all(DATA_DIR).expect("Failed to create data directory");
     GameDatabase::new(&db_path)
 });
 
@@ -292,18 +290,24 @@ async fn post_game_saves_reference_by_path_id(
 )]
 async fn post_game_save_by_path_id(
     Path((_game_id, path_id)): Path<(i32, i32)>,
-    mut multipart: Multipart,
+    multipart: Multipart,
 ) -> StatusCode {
     let uuid = Uuid::new_v4();
     let tmp_path = format!("{}/{}.sav", TMP_DIR, uuid);
     let save_path = format!("{}/{}.sav", SAVE_DIR, uuid);
-    let mut tmp_file = File::create(&tmp_path).await.unwrap();
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        let data = field.bytes().await.unwrap();
-        tmp_file.write_all(&data).await.unwrap();
+    if write_file_to_data(&tmp_path, &save_path, multipart)
+        .await
+        .is_err()
+    {
+        return StatusCode::INTERNAL_SERVER_ERROR;
     }
-    std::fs::rename(tmp_path, save_path).unwrap();
-    StatusCode::CREATED
+    match DATABASE.add_reference_to_save(uuid, path_id) {
+        Ok(()) => StatusCode::CREATED,
+        Err(e) => {
+            eprintln!("Error adding game save reference: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
 }
 
 #[derive(OpenApi)]
@@ -354,6 +358,7 @@ async fn main() {
             "/games/{Id}/paths/{Id}/saves/upload",
             post(post_game_save_by_path_id),
         )
+        .layer(DefaultBodyLimit::max(3 * 1024 * 1024 * 1024))
         .route("/games/{Id}/executables", get(get_game_executables))
         .route("/games/{Id}/executables", post(post_game_executable))
         .route(
