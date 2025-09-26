@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
+    - uses: actions/checkout@v4
     - name: Run clippy
       run: cargo clippy -- -D warnings
   formating:
