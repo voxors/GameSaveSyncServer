@@ -1,10 +1,12 @@
 use crate::DATABASE;
+use crate::constvar::ROOT_API_PATH;
 use crate::datatype_endpoint::{Executable, ExecutableCreate, OS};
 use axum::{Json, extract::Path, http::StatusCode};
+use const_format::concatcp;
 
 #[utoipa::path(
     get,
-    path = "/games/{Id}/executables",
+    path = concatcp!(ROOT_API_PATH, "/games/{Id}/executables"),
     params(
         ("Id" = String, Path, description = "Id of the game")
     ),
@@ -26,7 +28,7 @@ pub async fn get_game_executables(
 
 #[utoipa::path(
     get,
-    path = "/games/{Id}/executables/{OS}",
+    path = concatcp!(ROOT_API_PATH, "/games/{Id}/executables/{OS}"),
     params(
         ("Id" = String, Path, description = "Id of the game"),
         ("OS" = OS, Path, description = "Operating system [OS]")
@@ -51,7 +53,7 @@ pub async fn get_game_executables_by_os(
 
 #[utoipa::path(
     post,
-    path = "/games/{Id}/executables",
+    path = concatcp!(ROOT_API_PATH, "/games/{Id}/executables"),
     params(
         ("Id" = String, Path, description = "Id of the game"),
     ),

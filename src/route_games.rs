@@ -1,10 +1,12 @@
 use crate::DATABASE;
+use crate::constvar::ROOT_API_PATH;
 use crate::datatype_endpoint::{GameMetadata, GameMetadataCreate};
 use axum::{Json, extract::Path, http::StatusCode};
+use const_format::concatcp;
 
 #[utoipa::path(
     post,
-    path = "/games",
+    path = concatcp!(ROOT_API_PATH, "/games"),
     params(),
     request_body = GameMetadataCreate,
     responses(
@@ -23,7 +25,7 @@ pub async fn post_game_metadata(Json(payload): Json<GameMetadataCreate>) -> Stat
 
 #[utoipa::path(
     get,
-    path = "/games",
+    path = concatcp!(ROOT_API_PATH, "/games"),
     params(),
     responses(
         (status = 200, description = "get all games metadata", body = [Vec<GameMetadata>])
@@ -41,7 +43,7 @@ pub async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode>
 
 #[utoipa::path(
     get,
-    path = "/games/{Id}",
+    path = concatcp!(ROOT_API_PATH, "/games/{Id}"),
     params(
         ("Id" = String, Path, description = "Id of the game")
     ),

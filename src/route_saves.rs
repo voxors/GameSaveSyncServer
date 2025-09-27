@@ -1,14 +1,16 @@
 use crate::DATABASE;
+use crate::constvar::{ROOT_API_PATH, SAVE_DIR, TMP_DIR};
 use crate::datatype_endpoint::{SaveReference, UploadedFile};
-use crate::file_system::{SAVE_DIR, TMP_DIR, write_file_to_data};
+use crate::file_system::write_file_to_data;
 use axum::extract::Multipart;
 use axum::{Json, extract::Path, http::StatusCode};
+use const_format::concatcp;
 use std::fs;
 use uuid::Uuid;
 
 #[utoipa::path(
     get,
-    path ="/games/{Id}/paths/{Id}/saves",
+    path = concatcp!(ROOT_API_PATH, "/games/{Id}/paths/{Id}/saves"),
     params(
         ("Id" = String, Path, description = "Id of the game"),
         ("Id" = String, Path, description = "Id of the path")
@@ -59,7 +61,7 @@ pub async fn get_game_saves_reference_by_path_id(
 
 #[utoipa::path(
     post,
-    path = "/games/{Id}/paths/{Id}/saves/upload",
+    path = concatcp!(ROOT_API_PATH, "/games/{Id}/paths/{Id}/saves/upload"),
     params(
         ("Id" = String, Path, description = "Id of the game"),
         ("Id" = String, Path, description = "Id of the path")

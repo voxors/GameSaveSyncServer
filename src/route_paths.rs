@@ -1,10 +1,12 @@
 use crate::DATABASE;
+use crate::constvar::ROOT_API_PATH;
 use crate::datatype_endpoint::{OS, SavePath, SavePathCreate};
 use axum::{Json, extract::Path, http::StatusCode};
+use const_format::concatcp;
 
 #[utoipa::path(
     get,
-    path = "/games/{Id}/paths",
+    path = concatcp!(ROOT_API_PATH, "/games/{Id}/paths"),
     params(
         ("Id" = String, Path, description = "Id of the game")
     ),
@@ -24,7 +26,7 @@ pub async fn get_game_paths(Path(id): Path<i32>) -> Result<Json<Vec<SavePath>>, 
 
 #[utoipa::path(
     get,
-    path = "/games/{Id}/paths/{OS}",
+    path = concatcp!(ROOT_API_PATH,"/games/{Id}/paths/{OS}"),
     params(
         ("Id" = String, Path, description = "Id of the game"),
         ("OS" = OS, Path, description = "Operating system [OS]")
@@ -49,7 +51,7 @@ pub async fn get_game_paths_by_os(
 
 #[utoipa::path(
     post,
-    path = "/games/{Id}/paths",
+    path = concatcp!(ROOT_API_PATH, "/games/{Id}/paths"),
     params(
         ("Id" = String, Path, description = "Id of the game"),
     ),

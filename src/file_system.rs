@@ -1,11 +1,8 @@
 use axum::extract::Multipart;
-use const_format::concatcp;
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
-pub const DATA_DIR: &str = "./data";
-pub const SAVE_DIR: &str = concatcp!(DATA_DIR, "/saves");
-pub const TMP_DIR: &str = concatcp!(DATA_DIR, "/tmp");
+use crate::constvar::{DATA_DIR, TMP_DIR};
 
 pub async fn write_file_to_data(
     tmp_path: &str,
