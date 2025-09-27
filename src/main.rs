@@ -295,18 +295,21 @@ async fn post_game_save_by_path_id(
     let uuid = Uuid::new_v4();
     let tmp_path = format!("{}/{}.sav", TMP_DIR, uuid);
     let save_path = format!("{}/{}.sav", SAVE_DIR, uuid);
-    if write_file_to_data(&tmp_path, &save_path, multipart)
-        .await
-        .is_err()
-    {
-        return StatusCode::INTERNAL_SERVER_ERROR;
+    let result = async {
+        write_file_to_data(&tmp_path, &save_path, multipart).await?;
+        DATABASE.add_reference_to_save(uuid, path_id)?;
+        Ok::<(), Box<dyn std::error::Error>>(())
     }
-    match DATABASE.add_reference_to_save(uuid, path_id) {
-        Ok(()) => StatusCode::CREATED,
-        Err(e) => {
-            eprintln!("Error adding game save reference: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
+    .await;
+
+    if let Err(e) = result {
+        eprintln!("Error uploading game save: {}", e);
+        //Try to clean up
+        let _ = fs::remove_file(&tmp_path);
+        let _ = fs::remove_file(&save_path);
+        StatusCode::INTERNAL_SERVER_ERROR
+    } else {
+        StatusCode::CREATED
     }
 }
 
