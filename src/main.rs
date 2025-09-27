@@ -1,4 +1,4 @@
-mod constvar;
+mod const_var;
 mod database;
 mod datatype_endpoint;
 mod file_system;
@@ -8,7 +8,7 @@ mod route_games;
 mod route_paths;
 mod route_saves;
 
-use crate::constvar::{DATA_DIR, MAX_BODY_SIZE, ROOT_API_PATH};
+use crate::const_var::{DATA_DIR, MAX_BODY_SIZE, ROOT_API_PATH};
 use crate::database::interface::GameDatabase;
 use crate::file_system::create_fs_structure;
 use crate::openapi::ApiDoc;

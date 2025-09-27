@@ -1,5 +1,5 @@
 use crate::DATABASE;
-use crate::constvar::ROOT_API_PATH;
+use crate::const_var::ROOT_API_PATH;
 use crate::datatype_endpoint::{GameMetadata, GameMetadataCreate};
 use axum::{Json, extract::Path, http::StatusCode};
 use const_format::concatcp;

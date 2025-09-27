@@ -2,7 +2,7 @@ use axum::extract::Multipart;
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
-use crate::constvar::{DATA_DIR, TMP_DIR};
+use crate::const_var::{DATA_DIR, TMP_DIR};
 
 pub async fn write_file_to_data(
     tmp_path: &str,
