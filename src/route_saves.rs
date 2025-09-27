@@ -2,10 +2,15 @@ use crate::DATABASE;
 use crate::const_var::{ROOT_API_PATH, SAVE_DIR, TMP_DIR};
 use crate::datatype_endpoint::{SaveReference, UploadedFile};
 use crate::file_system::write_file_to_data;
+use axum::body::Body;
 use axum::extract::Multipart;
+use axum::response::{IntoResponse, Response};
 use axum::{Json, extract::Path, http::StatusCode};
 use const_format::concatcp;
 use std::fs;
+use std::path::PathBuf;
+use tokio::fs::File;
+use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
 #[utoipa::path(
@@ -98,5 +103,51 @@ pub async fn post_game_save_by_path_id(
         StatusCode::INTERNAL_SERVER_ERROR
     } else {
         StatusCode::CREATED
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = concatcp!(ROOT_API_PATH, "/saves/{uuid}"),
+    params(
+        ("uuid" = String, Path, description = "UUID of the game save")
+    ),
+    responses(
+        (status = 200, description = "game save file returned", content_type = "application/octet-stream"),
+        (status = 404, description = "save not found")
+    )
+)]
+pub async fn get_game_save_by_uuid(Path((uuid,)): Path<(String,)>) -> impl IntoResponse {
+    let file_path = format!("{}/{}.sav", SAVE_DIR, uuid);
+    let path_buf = PathBuf::from(&file_path);
+
+    match File::open(&path_buf).await {
+        Ok(file) => {
+            // Stream the file contents
+            let stream = ReaderStream::new(file);
+            let body = Body::from_stream(stream);
+
+            // Detect the MIME type (defaults to application/octet-stream)
+            let mime = mime_guess::from_path(&path_buf).first_or_octet_stream();
+
+            // Return the file as an attachment
+            Response::builder()
+                .header("Content-Type", mime.to_string())
+                .header(
+                    "Content-Disposition",
+                    format!("attachment; filename=\"{}.sav\"", uuid),
+                )
+                .body(body)
+                .unwrap_or_else(|_| {
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::empty())
+                        .unwrap()
+                })
+        }
+        Err(_) => Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::empty())
+            .unwrap(),
     }
 }

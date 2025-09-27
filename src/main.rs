@@ -17,7 +17,9 @@ use crate::route_executable::{
 };
 use crate::route_games::{get_game_metadata, get_games_metadata, post_game_metadata};
 use crate::route_paths::{get_game_paths, get_game_paths_by_os, post_game_path};
-use crate::route_saves::{get_game_saves_reference_by_path_id, post_game_save_by_path_id};
+use crate::route_saves::{
+    get_game_save_by_uuid, get_game_saves_reference_by_path_id, post_game_save_by_path_id,
+};
 use axum::extract::DefaultBodyLimit;
 use axum::{Router, routing::get, routing::post};
 use const_format::concatcp;
@@ -26,8 +28,8 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| {
-    let db_path = format!("{}/database.sqlite", DATA_DIR);
-    GameDatabase::new(&db_path)
+    let db_path = concatcp!(DATA_DIR, "/database.sqlite");
+    GameDatabase::new(db_path)
 });
 
 #[tokio::main]
@@ -79,6 +81,10 @@ async fn main() {
         .route(
             concatcp!(ROOT_API_PATH, "/games/{Id}/executables/{OS}"),
             get(get_game_executables_by_os),
+        )
+        .route(
+            concatcp!(ROOT_API_PATH, "/saves/{Uuid}"),
+            get(get_game_save_by_uuid),
         )
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()));
 
