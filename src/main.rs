@@ -15,10 +15,7 @@ use crate::route_executable::{
 };
 use crate::route_games::{get_game_metadata, get_games_metadata, post_game_metadata};
 use crate::route_paths::{get_game_paths, get_game_paths_by_os, post_game_path};
-use crate::route_saves::{
-    get_game_saves_reference_by_path_id, post_game_save_by_path_id,
-    post_game_saves_reference_by_path_id,
-};
+use crate::route_saves::{get_game_saves_reference_by_path_id, post_game_save_by_path_id};
 use axum::extract::DefaultBodyLimit;
 use axum::{Router, routing::get, routing::post};
 use once_cell::sync::Lazy;
@@ -47,10 +44,10 @@ async fn main() {
             "/games/{Id}/paths/{Id}/saves",
             get(get_game_saves_reference_by_path_id),
         )
-        .route(
-            "/games/{Id}/paths/{Id}/saves",
-            post(post_game_saves_reference_by_path_id),
-        )
+        // .route(
+        //     "/games/{Id}/paths/{Id}/saves",
+        //     post(post_game_saves_reference_by_path_id),
+        // )
         .route(
             "/games/{Id}/paths/{Id}/saves/upload",
             post(post_game_save_by_path_id),

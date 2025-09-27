@@ -9,7 +9,6 @@ use crate::route_paths::{
 };
 use crate::route_saves::{
     __path_get_game_saves_reference_by_path_id, __path_post_game_save_by_path_id,
-    __path_post_game_saves_reference_by_path_id,
 };
 use utoipa::OpenApi;
 
@@ -25,7 +24,6 @@ use utoipa::OpenApi;
     get_game_executables_by_os,
     post_game_executable,
     get_game_saves_reference_by_path_id,
-    post_game_saves_reference_by_path_id,
     post_game_save_by_path_id,
 ))]
 pub struct ApiDoc;

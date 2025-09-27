@@ -32,30 +32,30 @@ pub async fn get_game_saves_reference_by_path_id(
     }
 }
 
-#[utoipa::path(
-    post,
-    path = "/games/{Id}/paths/{Id}/saves",
-    params(
-        ("Id" = String, Path, description = "Id of the game"),
-        ("Id" = String, Path, description = "Id of the path")
-    ),
-    responses(
-        (status = 201, description = "game save reference returned", body = [Vec<SaveReference>]),
-        (status = 400, description = "invalid operating system"),
-        (status = 404, description = "path not found")
-    )
-)]
-pub async fn post_game_saves_reference_by_path_id(
-    Path((_game_id, path_id)): Path<(i32, i32)>,
-) -> StatusCode {
-    match DATABASE.add_reference_to_save(Uuid::new_v4(), path_id) {
-        Ok(()) => StatusCode::CREATED,
-        Err(e) => {
-            eprintln!("Error adding game save reference: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
-}
+// #[utoipa::path(
+//     post,
+//     path = "/games/{Id}/paths/{Id}/saves",
+//     params(
+//         ("Id" = String, Path, description = "Id of the game"),
+//         ("Id" = String, Path, description = "Id of the path")
+//     ),
+//     responses(
+//         (status = 201, description = "game save reference returned", body = [Vec<SaveReference>]),
+//         (status = 400, description = "invalid operating system"),
+//         (status = 404, description = "path not found")
+//     )
+// )]
+// pub async fn post_game_saves_reference_by_path_id(
+//     Path((_game_id, path_id)): Path<(i32, i32)>,
+// ) -> StatusCode {
+//     match DATABASE.add_reference_to_save(Uuid::new_v4(), path_id) {
+//         Ok(()) => StatusCode::CREATED,
+//         Err(e) => {
+//             eprintln!("Error adding game save reference: {}", e);
+//             StatusCode::INTERNAL_SERVER_ERROR
+//         }
+//     }
+// }
 
 #[utoipa::path(
     post,
