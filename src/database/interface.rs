@@ -1,7 +1,7 @@
-use crate::database::datatype_database::{
+use crate::database::datatype::{
     NewGameExecutable, NewGameMetadata, NewGameName, NewGamePath, NewGameSave,
 };
-use crate::database::datatype_database_schema::{
+use crate::database::schema::{
     game_alt_name, game_executable, game_metadata, game_path, game_save,
 };
 use crate::datatype_endpoint::{

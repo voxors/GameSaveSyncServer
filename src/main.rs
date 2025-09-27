@@ -7,7 +7,7 @@ mod route_games;
 mod route_paths;
 mod route_saves;
 
-use crate::database::database_interface::GameDatabase;
+use crate::database::interface::GameDatabase;
 use crate::file_system::{DATA_DIR, create_fs_structure};
 use crate::openapi::ApiDoc;
 use crate::route_executable::{
