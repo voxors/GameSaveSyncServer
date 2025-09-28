@@ -40,12 +40,13 @@ impl GameDatabase {
     pub fn add_game_metadata(
         &self,
         game_metadata: &GameMetadataCreate,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
             diesel::insert_into(game_metadata::table)
                 .values(NewGameMetadata {
+                    id: None,
                     steam_appid: game_metadata.steam_appid.as_deref(),
                     default_name: &game_metadata.default_name,
                 })
@@ -76,6 +77,39 @@ impl GameDatabase {
 
             Ok(())
         })
+    }
+
+    pub fn get_game_metadata_by_name(
+        &self,
+        target_name: &str,
+    ) -> Result<Vec<GameMetadata>, Box<dyn std::error::Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+        let db_games: Vec<(Option<i32>, String, Option<String>)> = game_metadata::table
+            .filter(game_metadata::default_name.eq(target_name))
+            .select((
+                game_metadata::id,
+                game_metadata::default_name,
+                game_metadata::steam_appid,
+            ))
+            .load(connection)?;
+
+        let mut games: Vec<GameMetadata> = Vec::<GameMetadata>::new();
+        for (id, default_name, steam_appid) in db_games {
+            let name_rows: Vec<String> = game_alt_name::table
+                .filter(game_alt_name::game_metadata_id.eq(id.unwrap()))
+                .select(game_alt_name::name)
+                .load(connection)?;
+
+            games.push(GameMetadata {
+                id,
+                metadata: GameMetadataCreate {
+                    known_name: name_rows,
+                    steam_appid,
+                    default_name,
+                },
+            });
+        }
+        Ok(games)
     }
 
     pub fn get_game_metadata_by_id(
@@ -120,6 +154,7 @@ impl GameDatabase {
             }))
         })
     }
+
     pub fn get_games_metadata(&self) -> Result<Vec<GameMetadata>, Box<dyn std::error::Error>> {
         let connection = &mut self.pool.get()?;
         let ids: Vec<i32> = game_metadata::table
