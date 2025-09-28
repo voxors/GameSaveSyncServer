@@ -2,11 +2,14 @@ mod const_var;
 mod database;
 mod datatype_endpoint;
 mod file_system;
+mod ludusavi;
 mod openapi;
 mod route_executable;
 mod route_games;
 mod route_paths;
 mod route_saves;
+mod route_yaml_import;
+mod ludusavi_datatype;
 
 use crate::const_var::{DATA_DIR, MAX_BODY_SIZE, ROOT_API_PATH};
 use crate::database::interface::GameDatabase;
@@ -20,6 +23,7 @@ use crate::route_paths::{get_game_paths, get_game_paths_by_os, post_game_path};
 use crate::route_saves::{
     get_game_save_by_uuid, get_game_saves_reference_by_path_id, post_game_save_by_path_id,
 };
+use crate::route_yaml_import::post_ludusavi_yaml;
 use axum::extract::DefaultBodyLimit;
 use axum::{Router, routing::get, routing::post};
 use const_format::concatcp;
@@ -58,15 +62,11 @@ async fn main() {
             get(get_game_paths_by_os),
         )
         .route(
-            concatcp!(ROOT_API_PATH, "/games/{Id}/paths/{Id}/saves"),
+            concatcp!(ROOT_API_PATH, "/paths/{Id}/saves"),
             get(get_game_saves_reference_by_path_id),
         )
-        // .route(
-        //     "/games/{Id}/paths/{Id}/saves",
-        //     post(post_game_saves_reference_by_path_id),
-        // )
         .route(
-            concatcp!(ROOT_API_PATH, "/games/{Id}/paths/{Id}/saves/upload"),
+            concatcp!(ROOT_API_PATH, "/paths/{Id}/saves/upload"),
             post(post_game_save_by_path_id),
         )
         .layer(DefaultBodyLimit::max(MAX_BODY_SIZE))
@@ -86,6 +86,11 @@ async fn main() {
             concatcp!(ROOT_API_PATH, "/saves/{Uuid}"),
             get(get_game_save_by_uuid),
         )
+        .route(
+            concatcp!(ROOT_API_PATH, "/yaml/ludusavi"),
+            post(post_ludusavi_yaml),
+        )
+        .layer(DefaultBodyLimit::max(MAX_BODY_SIZE))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
