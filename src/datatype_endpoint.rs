@@ -21,6 +21,7 @@ pub struct UploadedFile {
 pub enum OS {
     Windows,
     Linux,
+    Undefined,
 }
 
 impl<DB> ToSql<Text, DB> for OS
@@ -32,6 +33,7 @@ where
         match self {
             OS::Windows => <str as ToSql<Text, DB>>::to_sql("windows", out),
             OS::Linux => <str as ToSql<Text, DB>>::to_sql("linux", out),
+            OS::Undefined => <str as ToSql<Text, DB>>::to_sql("undefined", out),
         }
     }
 }
@@ -46,6 +48,7 @@ where
         match s.as_str() {
             "windows" => Ok(OS::Windows),
             "linux" => Ok(OS::Linux),
+            "undefined" => Ok(OS::Undefined),
             other => Err(format!("invalid OS value in the database: {other}").into()),
         }
     }

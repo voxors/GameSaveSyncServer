@@ -37,12 +37,12 @@ pub struct RegistryRule {
     pub when: Option<Vec<RegistryConstraint>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub struct SteamInfo {
     pub id: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub struct GogInfo {
     pub id: Option<i64>,
 }
@@ -55,7 +55,7 @@ pub struct IdInfo {
     pub steam_extra: Option<Vec<i64>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub struct CloudInfo {
     pub epic: Option<bool>,
     pub gog: Option<bool>,
@@ -69,25 +69,25 @@ pub struct Note {
     pub message: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub struct FileConstraint {
     pub os: Option<Os>,
     pub store: Option<Store>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub struct LaunchConstraint {
     pub bit: Option<Bit>,
     pub os: Option<Os>,
     pub store: Option<Store>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub struct RegistryConstraint {
     pub store: Option<Store>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub enum Bit {
     #[serde(rename = "32")]
     Bit32,
@@ -95,7 +95,7 @@ pub enum Bit {
     Bit64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum Os {
     Dos,
@@ -104,7 +104,7 @@ pub enum Os {
     Windows,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum Store {
     Discord,
@@ -116,7 +116,7 @@ pub enum Store {
     Uplay,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Tag {
     Config,
