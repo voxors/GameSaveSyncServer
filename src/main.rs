@@ -3,13 +3,13 @@ mod database;
 mod datatype_endpoint;
 mod file_system;
 mod ludusavi;
+mod ludusavi_datatype;
 mod openapi;
 mod route_executable;
 mod route_games;
 mod route_paths;
 mod route_saves;
 mod route_yaml_import;
-mod ludusavi_datatype;
 
 use crate::const_var::{DATA_DIR, MAX_BODY_SIZE, ROOT_API_PATH};
 use crate::database::interface::GameDatabase;
