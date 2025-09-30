@@ -1,5 +1,5 @@
 use crate::database::datatype::{
-    NewGameExecutable, NewGameMetadata, NewGameName, NewGamePath, NewGameSave,
+    DbGameExecutable, DbGameMetadata, DbGameName, DbGamePath, DbGameSave,
 };
 use crate::database::schema::{
     game_alt_name, game_executable, game_metadata, game_path, game_save,
@@ -40,12 +40,13 @@ impl GameDatabase {
     pub fn add_game_metadata(
         &self,
         game_metadata: &GameMetadataCreate,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
             diesel::insert_into(game_metadata::table)
-                .values(NewGameMetadata {
+                .values(DbGameMetadata {
+                    id: None,
                     steam_appid: game_metadata.steam_appid.as_deref(),
                     default_name: &game_metadata.default_name,
                 })
@@ -66,7 +67,7 @@ impl GameDatabase {
                     game_metadata
                         .known_name
                         .iter()
-                        .map(|name| NewGameName {
+                        .map(|name| DbGameName {
                             name,
                             game_metadata_id: inserted_id,
                         })
@@ -76,6 +77,39 @@ impl GameDatabase {
 
             Ok(())
         })
+    }
+
+    pub fn get_game_metadata_by_name(
+        &self,
+        target_name: &str,
+    ) -> Result<Vec<GameMetadata>, Box<dyn std::error::Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+        let db_games: Vec<(Option<i32>, String, Option<String>)> = game_metadata::table
+            .filter(game_metadata::default_name.eq(target_name))
+            .select((
+                game_metadata::id,
+                game_metadata::default_name,
+                game_metadata::steam_appid,
+            ))
+            .load(connection)?;
+
+        let mut games: Vec<GameMetadata> = Vec::with_capacity(db_games.len());
+        for (id, default_name, steam_appid) in db_games {
+            let known_name: Vec<String> = game_alt_name::table
+                .filter(game_alt_name::game_metadata_id.eq(id.unwrap()))
+                .select(game_alt_name::name)
+                .load(connection)?;
+
+            games.push(GameMetadata {
+                id,
+                metadata: GameMetadataCreate {
+                    known_name,
+                    steam_appid,
+                    default_name,
+                },
+            });
+        }
+        Ok(games)
     }
 
     pub fn get_game_metadata_by_id(
@@ -120,20 +154,32 @@ impl GameDatabase {
             }))
         })
     }
+
     pub fn get_games_metadata(&self) -> Result<Vec<GameMetadata>, Box<dyn std::error::Error>> {
         let connection = &mut self.pool.get()?;
-        let ids: Vec<i32> = game_metadata::table
-            .select(game_metadata::id)
-            .load::<Option<i32>>(connection)?
-            .into_iter()
-            .flatten()
-            .collect();
+        let db_games: Vec<(Option<i32>, String, Option<String>)> = game_metadata::table
+            .select((
+                game_metadata::id,
+                game_metadata::default_name,
+                game_metadata::steam_appid,
+            ))
+            .load(connection)?;
 
-        let mut games = Vec::with_capacity(ids.len());
-        for id in ids {
-            if let Some(game) = self.get_game_metadata_by_id(&id)? {
-                games.push(game);
-            }
+        let mut games = Vec::with_capacity(db_games.len());
+        for (id, default_name, steam_appid) in db_games {
+            let known_name: Vec<String> = game_alt_name::table
+                .filter(game_alt_name::game_metadata_id.eq(id.unwrap()))
+                .select(game_alt_name::name)
+                .load(connection)?;
+
+            games.push(GameMetadata {
+                id,
+                metadata: GameMetadataCreate {
+                    known_name,
+                    steam_appid,
+                    default_name,
+                },
+            });
         }
 
         Ok(games)
@@ -143,11 +189,12 @@ impl GameDatabase {
         &self,
         game_id: i32,
         path: &SavePathCreate,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         diesel::insert_into(game_path::table)
-            .values(NewGamePath {
+            .values(DbGamePath {
+                id: None,
                 path: &path.path,
                 operating_system: &path.operating_system,
                 game_metadata_id: game_id,
@@ -159,7 +206,7 @@ impl GameDatabase {
         &self,
         game_id: i32,
         os: OS,
-    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let paths: Vec<String> = game_path::table
             .filter(game_path::game_metadata_id.eq(game_id))
@@ -195,10 +242,11 @@ impl GameDatabase {
         &self,
         game_id: i32,
         executable: &ExecutableCreate,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         diesel::insert_into(game_executable::table)
-            .values(NewGameExecutable {
+            .values(DbGameExecutable {
+                id: None,
                 executable: &executable.executable,
                 operating_system: &executable.operating_system,
                 game_metadata_id: game_id,
@@ -210,7 +258,7 @@ impl GameDatabase {
         &self,
         game_id: i32,
         os: OS,
-    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let paths: Vec<String> = game_executable::table
             .filter(game_executable::game_metadata_id.eq(game_id))
@@ -254,7 +302,7 @@ impl GameDatabase {
         let connection = &mut self.pool.get()?;
         let now = time::OffsetDateTime::now_utc();
         diesel::insert_into(game_save::table)
-            .values(NewGameSave {
+            .values(DbGameSave {
                 uuid: &uuid.to_string(),
                 path_id,
                 time: time::PrimitiveDateTime::new(now.date(), now.time()),

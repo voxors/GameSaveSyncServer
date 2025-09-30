@@ -11,6 +11,7 @@ use crate::route_saves::{
     __path_get_game_save_by_uuid, __path_get_game_saves_reference_by_path_id,
     __path_post_game_save_by_path_id,
 };
+use crate::route_yaml_import::__path_post_ludusavi_yaml;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
@@ -27,5 +28,6 @@ use utoipa::OpenApi;
     post_game_metadata,
     post_game_path,
     post_game_save_by_path_id,
+    post_ludusavi_yaml,
 ))]
 pub struct ApiDoc;

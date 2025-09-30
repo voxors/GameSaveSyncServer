@@ -1,7 +1,7 @@
 use crate::DATABASE;
 use crate::const_var::{ROOT_API_PATH, SAVE_DIR, TMP_DIR};
 use crate::datatype_endpoint::{SaveReference, UploadedFile};
-use crate::file_system::write_file_to_data;
+use crate::file_system::write_multipart_to_data_file;
 use axum::body::Body;
 use axum::extract::Multipart;
 use axum::response::{IntoResponse, Response};
@@ -15,9 +15,8 @@ use uuid::Uuid;
 
 #[utoipa::path(
     get,
-    path = concatcp!(ROOT_API_PATH, "/games/{Id}/paths/{Id}/saves"),
+    path = concatcp!(ROOT_API_PATH, "/paths/{Id}/saves"),
     params(
-        ("Id" = String, Path, description = "Id of the game"),
         ("Id" = String, Path, description = "Id of the path")
     ),
     responses(
@@ -27,7 +26,7 @@ use uuid::Uuid;
     )
 )]
 pub async fn get_game_saves_reference_by_path_id(
-    Path((_game_id, path_id)): Path<(i32, i32)>,
+    Path((path_id,)): Path<(i32,)>,
 ) -> Result<Json<Vec<SaveReference>>, StatusCode> {
     match DATABASE.get_reference_to_save_by_path_id(path_id) {
         Ok(Some(data)) => Ok(Json(data)),
@@ -39,36 +38,10 @@ pub async fn get_game_saves_reference_by_path_id(
     }
 }
 
-// #[utoipa::path(
-//     post,
-//     path = "/games/{Id}/paths/{Id}/saves",
-//     params(
-//         ("Id" = String, Path, description = "Id of the game"),
-//         ("Id" = String, Path, description = "Id of the path")
-//     ),
-//     responses(
-//         (status = 201, description = "game save reference returned", body = [Vec<SaveReference>]),
-//         (status = 400, description = "invalid operating system"),
-//         (status = 404, description = "path not found")
-//     )
-// )]
-// pub async fn post_game_saves_reference_by_path_id(
-//     Path((_game_id, path_id)): Path<(i32, i32)>,
-// ) -> StatusCode {
-//     match DATABASE.add_reference_to_save(Uuid::new_v4(), path_id) {
-//         Ok(()) => StatusCode::CREATED,
-//         Err(e) => {
-//             eprintln!("Error adding game save reference: {}", e);
-//             StatusCode::INTERNAL_SERVER_ERROR
-//         }
-//     }
-// }
-
 #[utoipa::path(
     post,
-    path = concatcp!(ROOT_API_PATH, "/games/{Id}/paths/{Id}/saves/upload"),
+    path = concatcp!(ROOT_API_PATH, "/paths/{Id}/saves/upload"),
     params(
-        ("Id" = String, Path, description = "Id of the game"),
         ("Id" = String, Path, description = "Id of the path")
     ),
     request_body(
@@ -82,14 +55,14 @@ pub async fn get_game_saves_reference_by_path_id(
     )
 )]
 pub async fn post_game_save_by_path_id(
-    Path((_game_id, path_id)): Path<(i32, i32)>,
+    Path((path_id,)): Path<(i32,)>,
     multipart: Multipart,
 ) -> StatusCode {
     let uuid = Uuid::new_v4();
     let tmp_path = format!("{}/{}.sav", TMP_DIR, uuid);
     let save_path = format!("{}/{}.sav", SAVE_DIR, uuid);
     let result = async {
-        write_file_to_data(&tmp_path, &save_path, multipart).await?;
+        write_multipart_to_data_file(&tmp_path, &save_path, multipart).await?;
         DATABASE.add_reference_to_save(uuid, path_id)?;
         Ok::<(), Box<dyn std::error::Error>>(())
     }
