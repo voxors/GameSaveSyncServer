@@ -242,7 +242,7 @@ impl GameDatabase {
         &self,
         game_id: i32,
         executable: &ExecutableCreate,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         diesel::insert_into(game_executable::table)
             .values(DbGameExecutable {
@@ -258,7 +258,7 @@ impl GameDatabase {
         &self,
         game_id: i32,
         os: OS,
-    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let paths: Vec<String> = game_executable::table
             .filter(game_executable::game_metadata_id.eq(game_id))
