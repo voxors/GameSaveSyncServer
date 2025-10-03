@@ -42,56 +42,35 @@ async fn main() {
     Lazy::force(&DATABASE);
     tracing_subscriber::fmt::init();
 
-    let app = Router::new()
-        .route(concatcp!(ROOT_API_PATH, "/games"), post(post_game_metadata))
-        .route(concatcp!(ROOT_API_PATH, "/games"), get(get_games_metadata))
+    let api_router = Router::new()
+        .route("/games", post(post_game_metadata))
+        .route("/games", get(get_games_metadata))
+        .route("/games/{Id}", get(get_game_metadata))
+        .route("/games/{Id}/paths", get(get_game_paths))
+        .route("/games/{Id}/paths", post(post_game_path))
+        .route("/games/{Id}/paths/{OS}", get(get_game_paths_by_os))
         .route(
-            concatcp!(ROOT_API_PATH, "/games/{Id}"),
-            get(get_game_metadata),
-        )
-        .route(
-            concatcp!(ROOT_API_PATH, "/games/{Id}/paths"),
-            get(get_game_paths),
-        )
-        .route(
-            concatcp!(ROOT_API_PATH, "/games/{Id}/paths"),
-            post(post_game_path),
-        )
-        .route(
-            concatcp!(ROOT_API_PATH, "/games/{Id}/paths/{OS}"),
-            get(get_game_paths_by_os),
-        )
-        .route(
-            concatcp!(ROOT_API_PATH, "/paths/{Id}/saves"),
+            "/paths/{Id}/saves",
             get(get_game_saves_reference_by_path_id),
         )
-        .route(
-            concatcp!(ROOT_API_PATH, "/paths/{Id}/saves/upload"),
-            post(post_game_save_by_path_id),
-        )
+        .route("/paths/{Id}/saves/upload", post(post_game_save_by_path_id))
         .layer(DefaultBodyLimit::max(MAX_BODY_SIZE))
+        .route("/games/{Id}/executables", get(get_game_executables))
+        .route("/games/{Id}/executables", post(post_game_executable))
         .route(
-            concatcp!(ROOT_API_PATH, "/games/{Id}/executables"),
-            get(get_game_executables),
-        )
-        .route(
-            concatcp!(ROOT_API_PATH, "/games/{Id}/executables"),
-            post(post_game_executable),
-        )
-        .route(
-            concatcp!(ROOT_API_PATH, "/games/{Id}/executables/{OS}"),
+            "/games/{Id}/executables/{OS}",
             get(get_game_executables_by_os),
         )
-        .route(
-            concatcp!(ROOT_API_PATH, "/saves/{Uuid}"),
-            get(get_game_save_by_uuid),
-        )
-        .route(
-            concatcp!(ROOT_API_PATH, "/yaml/ludusavi"),
-            post(post_ludusavi_yaml),
-        )
-        .layer(DefaultBodyLimit::max(MAX_BODY_SIZE))
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()));
+        .route("/saves/{Uuid}", get(get_game_save_by_uuid))
+        .route("/yaml/ludusavi", post(post_ludusavi_yaml))
+        .layer(DefaultBodyLimit::max(MAX_BODY_SIZE));
+
+    let swagger_router =
+        SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi());
+
+    let app = Router::new()
+        .nest(ROOT_API_PATH, api_router)
+        .merge(swagger_router);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
