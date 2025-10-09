@@ -1,0 +1,37 @@
+name: Rust
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  client-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build client
+        working-directory: client
+        run: cargo build --verbose
+      - name: Run client tests
+        working-directory: client
+        run: cargo test --verbose
+  client-clippy:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run clippy on client
+        working-directory: client
+        run: cargo clippy -- -D warnings
+  client-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check client formatting
+        working-directory: client
+        run: cargo fmt -- --check

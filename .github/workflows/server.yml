@@ -1,0 +1,37 @@
+name: Rust
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  server-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build server
+        working-directory: server
+        run: cargo build --verbose
+      - name: Run server tests
+        working-directory: server
+        run: cargo test --verbose
+  server-clippy:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run clippy on server
+        working-directory: server
+        run: cargo clippy -- -D warnings
+  server-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check server formatting
+        working-directory: server
+        run: cargo fmt -- --check
