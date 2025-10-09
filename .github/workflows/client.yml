@@ -1,4 +1,4 @@
-name: Rust
+name: Client
 
 on:
   push:
@@ -35,3 +35,14 @@ jobs:
       - name: Check client formatting
         working-directory: client
         run: cargo fmt -- --check
+  client-build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Build client
+        working-directory: client
+        run: cargo build --verbose
+      - name: Run client tests
+        working-directory: client
+        run: cargo test --verbose

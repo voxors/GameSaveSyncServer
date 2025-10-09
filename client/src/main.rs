@@ -1,43 +1,47 @@
-use iced::widget::{Column, button, column, text};
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-#[derive(Default)]
-struct Counter {
-    value: i32,
+use eframe::egui;
+
+fn main() -> eframe::Result {
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
+        ..Default::default()
+    };
+    eframe::run_native(
+        "My egui App",
+        options,
+        Box::new(|_| Ok(Box::<GameSaveClient>::default())),
+    )
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Message {
-    Increment,
-    Decrement,
+struct GameSaveClient {
+    name: String,
+    age: u32,
 }
 
-impl Counter {
-    pub fn view(&self) -> Column<'_, Message> {
-        // We use a column: a simple vertical layout
-        column![
-            // The increment button. We tell it to produce an
-            // `Increment` message when pressed
-            button("+").on_press(Message::Increment),
-            // We show the value of the counter here
-            text(self.value).size(50),
-            // The decrement button. We tell it to produce a
-            // `Decrement` message when pressed
-            button("-").on_press(Message::Decrement),
-        ]
-    }
-
-    pub fn update(&mut self, message: Message) {
-        match message {
-            Message::Increment => {
-                self.value += 1;
-            }
-            Message::Decrement => {
-                self.value -= 1;
-            }
+impl Default for GameSaveClient {
+    fn default() -> Self {
+        Self {
+            name: "Arthur".to_owned(),
+            age: 42,
         }
     }
 }
 
-fn main() -> iced::Result {
-    iced::run("A cool counter", Counter::update, Counter::view)
+impl eframe::App for GameSaveClient {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("My egui Application");
+            ui.horizontal(|ui| {
+                let name_label = ui.label("Your name: ");
+                ui.text_edit_singleline(&mut self.name)
+                    .labelled_by(name_label.id);
+            });
+            ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
+            if ui.button("Increment").clicked() {
+                self.age += 1;
+            }
+            ui.label(format!("Hello '{}', age {}", self.name, self.age));
+        });
+    }
 }
