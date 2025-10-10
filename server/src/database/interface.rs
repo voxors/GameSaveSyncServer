@@ -4,7 +4,7 @@ use crate::database::datatype::{
 use crate::database::schema::{
     game_alt_name, game_executable, game_metadata, game_path, game_save,
 };
-use crate::datatype_endpoint::{
+use common::datatype_endpoint::{
     Executable, ExecutableCreate, GameMetadata, GameMetadataCreate, OS, SavePath, SavePathCreate,
     SaveReference,
 };

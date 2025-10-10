@@ -1,7 +1,7 @@
 use crate::database::schema::{
     game_alt_name, game_executable, game_metadata, game_path, game_save,
 };
-use crate::datatype_endpoint::OS;
+use common::datatype_endpoint::OS;
 use diesel::{Insertable, Queryable, Selectable};
 
 #[derive(Insertable, Selectable, Queryable, PartialEq)]

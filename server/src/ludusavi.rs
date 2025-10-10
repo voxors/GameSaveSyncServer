@@ -1,8 +1,8 @@
+use common::datatype_endpoint::{ExecutableCreate, GameMetadataCreate, OS, SavePathCreate};
 use tokio::{fs, io::AsyncReadExt};
 
 use crate::{
     DATABASE,
-    datatype_endpoint::{ExecutableCreate, OS, SavePathCreate},
     ludusavi_datatype::{Game, GameIndex, Os, Tag},
 };
 
@@ -10,7 +10,7 @@ fn import_game_into_game_metadata_db(
     (name, game): &(String, Game),
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if DATABASE.get_game_metadata_by_name(name)?.is_empty() {
-        DATABASE.add_game_metadata(&crate::datatype_endpoint::GameMetadataCreate {
+        DATABASE.add_game_metadata(&GameMetadataCreate {
             known_name: Vec::new(),
             steam_appid: match game.steam {
                 Some(info) => info.id.map(|id| id.to_string()),

@@ -6,7 +6,6 @@ use std::sync::{
 use eframe::egui::{CentralPanel, Context};
 use egui::ViewportCommand;
 
-#[derive(Clone)]
 pub struct AddGameDialog {
     pub title: String,
     opened: Arc<AtomicBool>,

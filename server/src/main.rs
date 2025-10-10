@@ -1,6 +1,5 @@
 mod const_var;
 mod database;
-mod datatype_endpoint;
 mod file_system;
 mod ludusavi;
 mod ludusavi_datatype;

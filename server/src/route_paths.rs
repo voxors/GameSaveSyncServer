@@ -1,7 +1,7 @@
 use crate::DATABASE;
 use crate::const_var::ROOT_API_PATH;
-use crate::datatype_endpoint::{OS, SavePath, SavePathCreate};
 use axum::{Json, extract::Path, http::StatusCode};
+use common::datatype_endpoint::{OS, SavePath, SavePathCreate};
 use const_format::concatcp;
 
 #[utoipa::path(

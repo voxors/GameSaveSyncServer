@@ -1,22 +1,26 @@
-use diesel::backend::Backend;
-use diesel::deserialize::FromSql;
-use diesel::serialize::{Output, ToSql};
-use diesel::sql_types::Text;
-use diesel::{AsExpression, FromSqlRow, deserialize, serialize};
+#[cfg(feature = "diesel-extras")]
+use diesel::{
+    AsExpression, FromSqlRow,
+    backend::Backend,
+    deserialize::{self, FromSql},
+    serialize::{self, Output, ToSql},
+    sql_types::Text,
+};
+
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "utoipa-extras")]
 use utoipa::{IntoParams, ToSchema};
 
-#[derive(ToSchema)]
 #[allow(unused)]
+#[cfg_attr(feature = "utoipa-extras", derive(ToSchema))]
 pub struct UploadedFile {
-    #[schema(value_type = String, format = Binary)]
     file: Vec<u8>,
 }
 
-#[derive(
-    Serialize, Deserialize, ToSchema, Debug, Clone, Copy, PartialEq, Eq, AsExpression, FromSqlRow,
-)]
-#[diesel(sql_type = Text)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "utoipa-extras", derive(ToSchema))]
+#[cfg_attr(feature = "diesel-extras", derive(AsExpression, FromSqlRow))]
+#[cfg_attr(feature = "diesel-extras", diesel(sql_type = Text))]
 #[serde(rename_all = "lowercase")]
 pub enum OS {
     Windows,
@@ -24,6 +28,7 @@ pub enum OS {
     Undefined,
 }
 
+#[cfg(feature = "diesel-extras")]
 impl<DB> ToSql<Text, DB> for OS
 where
     DB: Backend,
@@ -38,6 +43,7 @@ where
     }
 }
 
+#[cfg(feature = "diesel-extras")]
 impl<DB> FromSql<Text, DB> for OS
 where
     DB: Backend,
@@ -54,46 +60,53 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa-extras", derive(ToSchema))]
 pub struct SavePathCreate {
     pub path: String,
     pub operating_system: OS,
 }
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa-extras", derive(ToSchema))]
 pub struct SavePath {
     pub id: Option<i32>,
     #[serde(flatten)]
     pub path: SavePathCreate,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa-extras", derive(ToSchema))]
 pub struct ExecutableCreate {
     pub executable: String,
     pub operating_system: OS,
 }
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa-extras", derive(ToSchema))]
 pub struct Executable {
     pub id: Option<i32>,
     #[serde(flatten)]
     pub executable: ExecutableCreate,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa-extras", derive(ToSchema))]
 pub struct GameMetadataCreate {
     pub known_name: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(required = false, nullable)]
+    #[cfg_attr(feature = "utoipa-extras", schema(required = false, nullable))]
     pub steam_appid: Option<String>,
     pub default_name: String,
 }
-#[derive(Serialize, Deserialize, ToSchema, IntoParams)]
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa-extras", derive(ToSchema, IntoParams))]
 pub struct GameMetadata {
     pub id: Option<i32>,
     #[serde(flatten)]
     pub metadata: GameMetadataCreate,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa-extras", derive(ToSchema))]
 pub struct SaveReference {
     pub uuid: String,
     pub path_id: i32,
