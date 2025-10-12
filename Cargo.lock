@@ -13,6 +13,7 @@ dependencies = [
  "mime_guess",
  "once_cell",
  "serde",
+ "serde_json",
  "serde_yaml",
  "time",
  "tokio",

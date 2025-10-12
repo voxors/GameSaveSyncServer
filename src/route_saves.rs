@@ -1,7 +1,7 @@
 use crate::DATABASE;
 use crate::const_var::{ROOT_API_PATH, SAVE_DIR, TMP_DIR};
-use crate::datatype_endpoint::{SaveReference, UploadedFile};
-use crate::file_system::write_multipart_to_data_file;
+use crate::datatype_endpoint::{SaveReference, UploadedSave};
+use crate::file_system::write_bytes_to_data_file;
 use axum::body::Body;
 use axum::extract::Multipart;
 use axum::response::{IntoResponse, Response};
@@ -45,7 +45,7 @@ pub async fn get_game_saves_reference_by_path_id(
         ("Id" = String, Path, description = "Id of the path")
     ),
     request_body(
-        content = UploadedFile,
+        content = UploadedSave,
         content_type = "multipart/form-data",
         description = "save to upload"
     ),
@@ -56,15 +56,42 @@ pub async fn get_game_saves_reference_by_path_id(
 )]
 pub async fn post_game_save_by_path_id(
     Path((path_id,)): Path<(i32,)>,
-    multipart: Multipart,
+    mut multipart: Multipart,
 ) -> StatusCode {
     let uuid = Uuid::new_v4();
     let tmp_path = format!("{}/{}.sav", TMP_DIR, uuid);
     let save_path = format!("{}/{}.sav", SAVE_DIR, uuid);
-    let result = async {
-        write_multipart_to_data_file(&tmp_path, &save_path, multipart).await?;
-        DATABASE.add_reference_to_save(uuid, path_id)?;
-        Ok::<(), Box<dyn std::error::Error>>(())
+
+    let result: Result<(), Box<dyn std::error::Error + Send + Sync>> = async {
+        let mut hash: Option<String> = None;
+        let mut file_hash: Vec<crate::datatype_endpoint::FileHash> = Vec::new();
+        let mut file_bytes: Vec<u8> = Vec::new();
+
+        while let Some(field) = multipart.next_field().await? {
+            match field.name() {
+                Some("hash") => {
+                    let bytes = field.bytes().await?;
+                    hash = Some(String::from_utf8(bytes.to_vec())?);
+                }
+                Some("file_hash") => {
+                    let bytes = field.bytes().await?;
+                    let json_str = String::from_utf8(bytes.to_vec())?;
+                    file_hash = serde_json::from_str(&json_str)?;
+                }
+                _ => {
+                    let data = field.bytes().await?;
+                    file_bytes.extend_from_slice(&data);
+                }
+            }
+        }
+
+        let hash = hash.ok_or("No hash provided")?;
+        write_bytes_to_data_file(&tmp_path, &save_path, &file_bytes).await?;
+
+        // Add reference to database
+        DATABASE.add_reference_to_save(uuid, hash.as_str().as_ref(), path_id, file_hash)?;
+
+        Ok(())
     }
     .await;
 

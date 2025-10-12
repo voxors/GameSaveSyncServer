@@ -1,12 +1,12 @@
 use crate::database::datatype::{
-    DbGameExecutable, DbGameMetadata, DbGameName, DbGamePath, DbGameSave,
+    DbFileHash, DbGameExecutable, DbGameMetadata, DbGameName, DbGamePath, DbGameSave,
 };
 use crate::database::schema::{
-    game_alt_name, game_executable, game_metadata, game_path, game_save,
+    file_hash, game_alt_name, game_executable, game_metadata, game_path, game_save,
 };
 use crate::datatype_endpoint::{
-    Executable, ExecutableCreate, GameMetadata, GameMetadataCreate, OS, SavePath, SavePathCreate,
-    SaveReference,
+    Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate, OS, SavePath,
+    SavePathCreate, SaveReference,
 };
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -297,18 +297,34 @@ impl GameDatabase {
     pub fn add_reference_to_save(
         &self,
         uuid: Uuid,
+        hash: &str,
         path_id: i32,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+        files_hash: Vec<FileHash>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let now = time::OffsetDateTime::now_utc();
-        diesel::insert_into(game_save::table)
-            .values(DbGameSave {
-                uuid: &uuid.to_string(),
-                path_id,
-                time: time::PrimitiveDateTime::new(now.date(), now.time()),
-            })
-            .execute(connection)?;
-        Ok(())
+
+        connection.immediate_transaction(|connection| {
+            diesel::insert_into(game_save::table)
+                .values(DbGameSave {
+                    uuid: uuid.to_string(),
+                    path_id,
+                    hash: hash.to_string(),
+                    time: time::PrimitiveDateTime::new(now.date(), now.time()),
+                })
+                .execute(connection)?;
+
+            for file_hash in files_hash {
+                diesel::insert_into(file_hash::table)
+                    .values(DbFileHash {
+                        relative_path: file_hash.relative_path,
+                        hash: file_hash.hash,
+                        game_save_uuid: uuid.to_string(),
+                    })
+                    .execute(connection)?;
+            }
+            Ok(())
+        })
     }
 
     pub fn get_reference_to_save_by_path_id(
@@ -317,9 +333,9 @@ impl GameDatabase {
     ) -> Result<Option<Vec<SaveReference>>, Box<dyn std::error::Error>> {
         let connection = &mut self.pool.get()?;
 
-        let save_rows: Vec<(String, time::PrimitiveDateTime)> = game_save::table
+        let save_rows = game_save::table
             .filter(game_save::path_id.eq(path_id))
-            .select((game_save::uuid, game_save::time))
+            .select(DbGameSave::as_select())
             .load(connection)?;
 
         if save_rows.is_empty() {
@@ -327,11 +343,22 @@ impl GameDatabase {
         }
 
         let mut save_references: Vec<SaveReference> = Vec::with_capacity(save_rows.len());
-        for (uuid, time) in save_rows {
+        for game_save in save_rows {
+            let files_hash_db =
+                DbFileHash::belonging_to(&game_save).load::<DbFileHash>(connection)?;
+
             save_references.push(SaveReference {
-                uuid,
-                path_id,
-                time: time.assume_utc().unix_timestamp(),
+                uuid: game_save.uuid.to_string(),
+                hash: game_save.hash.to_string(),
+                path_id: game_save.path_id,
+                time: game_save.time.assume_utc().unix_timestamp(),
+                files_hash: files_hash_db
+                    .iter()
+                    .map(|files_hash_db| FileHash {
+                        relative_path: files_hash_db.relative_path.clone(),
+                        hash: files_hash_db.hash.clone(),
+                    })
+                    .collect(),
             })
         }
 

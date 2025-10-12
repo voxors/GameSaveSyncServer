@@ -1,4 +1,3 @@
--- Your SQL goes here
 CREATE TABLE game_metadata (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     default_name TEXT NOT NULL,
@@ -35,5 +34,14 @@ CREATE TABLE game_save (
     uuid TEXT NOT NULL PRIMARY KEY,
     path_id INTEGER NOT NULL,
     time TIMESTAMP NOT NULL,
+    hash TEXT NOT NULL,
     FOREIGN KEY(path_id) REFERENCES game_path(id)
+    );
+
+CREATE TABLE file_hash (
+    relative_path TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    game_save_uuid TEXT NOT NULL,
+    PRIMARY KEY (relative_path, game_save_uuid)
+    FOREIGN KEY(game_save_uuid) REFERENCES game_save(uuid)
     );
