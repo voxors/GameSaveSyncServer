@@ -5,36 +5,37 @@ use crate::datatype_endpoint::OS;
 use diesel::prelude::{Associations, Identifiable};
 use diesel::{Insertable, Queryable, Selectable};
 
-#[derive(Insertable, Selectable, Queryable, PartialEq)]
+#[derive(Identifiable, Insertable, Selectable, Queryable, PartialEq, Debug)]
 #[diesel(table_name = game_metadata)]
-pub struct DbGameMetadata<'a> {
+pub struct DbGameMetadata {
     pub id: Option<i32>,
-    pub steam_appid: Option<&'a str>,
-    pub default_name: &'a str,
+    pub steam_appid: Option<String>,
+    pub default_name: String,
 }
 
-#[derive(Insertable, Selectable, Queryable, PartialEq)]
+#[derive(Identifiable, Insertable, Selectable, Queryable, PartialEq, Debug)]
+#[diesel(primary_key(name, game_metadata_id))]
 #[diesel(table_name = game_alt_name)]
-pub struct DbGameName<'a> {
-    pub name: &'a str,
+pub struct DbGameName {
+    pub name: String,
     pub game_metadata_id: i32,
 }
 
 #[derive(Insertable, Selectable, Queryable, PartialEq)]
 #[diesel(table_name = game_executable)]
-pub struct DbGameExecutable<'a> {
+pub struct DbGameExecutable {
     pub id: Option<i32>,
-    pub executable: &'a str,
-    pub operating_system: &'a OS,
+    pub executable: String,
+    pub operating_system: OS,
     pub game_metadata_id: i32,
 }
 
 #[derive(Insertable, Selectable, Queryable, PartialEq)]
 #[diesel(table_name = game_path)]
-pub struct DbGamePath<'a> {
+pub struct DbGamePath {
     pub id: Option<i32>,
-    pub path: &'a str,
-    pub operating_system: &'a OS,
+    pub path: String,
+    pub operating_system: OS,
     pub game_metadata_id: i32,
 }
 

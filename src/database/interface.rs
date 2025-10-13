@@ -47,8 +47,8 @@ impl GameDatabase {
             diesel::insert_into(game_metadata::table)
                 .values(DbGameMetadata {
                     id: None,
-                    steam_appid: game_metadata.steam_appid.as_deref(),
-                    default_name: &game_metadata.default_name,
+                    steam_appid: game_metadata.steam_appid.clone(),
+                    default_name: game_metadata.default_name.clone(),
                 })
                 .execute(connection)?;
 
@@ -68,7 +68,7 @@ impl GameDatabase {
                         .known_name
                         .iter()
                         .map(|name| DbGameName {
-                            name,
+                            name: name.to_string(),
                             game_metadata_id: inserted_id,
                         })
                         .collect::<Vec<_>>(),
@@ -84,28 +84,24 @@ impl GameDatabase {
         target_name: &str,
     ) -> Result<Vec<GameMetadata>, Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
-        let db_games: Vec<(Option<i32>, String, Option<String>)> = game_metadata::table
+        let db_games: Vec<DbGameMetadata> = game_metadata::table
             .filter(game_metadata::default_name.eq(target_name))
-            .select((
-                game_metadata::id,
-                game_metadata::default_name,
-                game_metadata::steam_appid,
-            ))
+            .select(DbGameMetadata::as_select())
             .load(connection)?;
 
         let mut games: Vec<GameMetadata> = Vec::with_capacity(db_games.len());
-        for (id, default_name, steam_appid) in db_games {
+        for db_game in db_games {
             let known_name: Vec<String> = game_alt_name::table
-                .filter(game_alt_name::game_metadata_id.eq(id.unwrap()))
+                .filter(game_alt_name::game_metadata_id.eq(db_game.id.unwrap()))
                 .select(game_alt_name::name)
                 .load(connection)?;
 
             games.push(GameMetadata {
-                id,
+                id: db_game.id,
                 metadata: GameMetadataCreate {
                     known_name,
-                    steam_appid,
-                    default_name,
+                    steam_appid: db_game.steam_appid,
+                    default_name: db_game.default_name,
                 },
             });
         }
@@ -195,8 +191,8 @@ impl GameDatabase {
         diesel::insert_into(game_path::table)
             .values(DbGamePath {
                 id: None,
-                path: &path.path,
-                operating_system: &path.operating_system,
+                path: path.path.clone(),
+                operating_system: path.operating_system,
                 game_metadata_id: game_id,
             })
             .execute(connection)?;
@@ -247,8 +243,8 @@ impl GameDatabase {
         diesel::insert_into(game_executable::table)
             .values(DbGameExecutable {
                 id: None,
-                executable: &executable.executable,
-                operating_system: &executable.operating_system,
+                executable: executable.executable.clone(),
+                operating_system: executable.operating_system,
                 game_metadata_id: game_id,
             })
             .execute(connection)?;
