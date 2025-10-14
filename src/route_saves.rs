@@ -20,7 +20,7 @@ use uuid::Uuid;
         ("Id" = String, Path, description = "Id of the path")
     ),
     responses(
-        (status = 200, description = "game saves returned", body = [Vec<SaveReference>]),
+        (status = 200, description = "game saves returned", body = [SaveReference]),
         (status = 400, description = "invalid operating system"),
         (status = 404, description = "game not found")
     )

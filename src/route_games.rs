@@ -28,7 +28,7 @@ pub async fn post_game_metadata(Json(payload): Json<GameMetadataCreate>) -> Stat
     path = concatcp!(ROOT_API_PATH, "/games"),
     params(),
     responses(
-        (status = 200, description = "get all games metadata", body = [Vec<GameMetadata>])
+        (status = 200, description = "get all games metadata", body = [GameMetadata])
     )
 )]
 pub async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode> {

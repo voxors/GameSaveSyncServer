@@ -11,7 +11,7 @@ use const_format::concatcp;
         ("Id" = String, Path, description = "Id of the game")
     ),
     responses(
-        (status = 200, description = "game executables returned", body = [Vec<Executable>]),
+        (status = 200, description = "game executables returned", body = [Executable]),
     )
 )]
 pub async fn get_game_executables(
@@ -34,7 +34,7 @@ pub async fn get_game_executables(
         ("OS" = OS, Path, description = "Operating system [OS]")
     ),
     responses(
-        (status = 200, description = "game executables returned", body = [Vec<String>]),
+        (status = 200, description = "game executables returned", body = [String]),
         (status = 400, description = "invalid operating system"),
         (status = 404, description = "game not found")
     )

@@ -11,7 +11,7 @@ use const_format::concatcp;
         ("Id" = String, Path, description = "Id of the game")
     ),
     responses(
-        (status = 200, description = "game paths returned", body = [Vec<SavePath>]),
+        (status = 200, description = "game paths returned", body = [SavePath]),
     )
 )]
 pub async fn get_game_paths(Path(id): Path<i32>) -> Result<Json<Vec<SavePath>>, StatusCode> {
@@ -32,7 +32,7 @@ pub async fn get_game_paths(Path(id): Path<i32>) -> Result<Json<Vec<SavePath>>, 
         ("OS" = OS, Path, description = "Operating system [OS]")
     ),
     responses(
-        (status = 200, description = "game paths returned", body = [Vec<String>]),
+        (status = 200, description = "game paths returned", body = [String]),
         (status = 400, description = "invalid operating system"),
         (status = 404, description = "game not found")
     )
