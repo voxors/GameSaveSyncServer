@@ -115,22 +115,18 @@ impl GameDatabase {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
-            let maybe_meta: Option<(Option<i32>, String, Option<String>)> = game_metadata::table
+            let maybe_meta: Option<DbGameMetadata> = game_metadata::table
                 .filter(game_metadata::id.eq(target_id))
-                .select((
-                    game_metadata::id,
-                    game_metadata::default_name,
-                    game_metadata::steam_appid,
-                ))
+                .select(DbGameMetadata::as_select())
                 .first(connection)
                 .optional()?;
 
-            let (id, default_name, steam_appid) = match maybe_meta {
+            let meta = match maybe_meta {
                 Some(meta) => meta,
                 None => return Ok(None),
             };
 
-            let id = match id {
+            let id = match meta.id {
                 Some(id) => id,
                 None => return Ok(None),
             };
@@ -144,8 +140,8 @@ impl GameDatabase {
                 id: Some(id),
                 metadata: GameMetadataCreate {
                     known_name: name_rows,
-                    steam_appid,
-                    default_name,
+                    steam_appid: meta.steam_appid,
+                    default_name: meta.default_name,
                 },
             }))
         })
@@ -153,27 +149,23 @@ impl GameDatabase {
 
     pub fn get_games_metadata(&self) -> Result<Vec<GameMetadata>, Box<dyn std::error::Error>> {
         let connection = &mut self.pool.get()?;
-        let db_games: Vec<(Option<i32>, String, Option<String>)> = game_metadata::table
-            .select((
-                game_metadata::id,
-                game_metadata::default_name,
-                game_metadata::steam_appid,
-            ))
+        let db_games: Vec<DbGameMetadata> = game_metadata::table
+            .select(DbGameMetadata::as_select())
             .load(connection)?;
 
         let mut games = Vec::with_capacity(db_games.len());
-        for (id, default_name, steam_appid) in db_games {
+        for db_game_metadata in db_games {
             let known_name: Vec<String> = game_alt_name::table
-                .filter(game_alt_name::game_metadata_id.eq(id.unwrap()))
+                .filter(game_alt_name::game_metadata_id.eq(db_game_metadata.id.unwrap()))
                 .select(game_alt_name::name)
                 .load(connection)?;
 
             games.push(GameMetadata {
-                id,
+                id: db_game_metadata.id,
                 metadata: GameMetadataCreate {
                     known_name,
-                    steam_appid,
-                    default_name,
+                    steam_appid: db_game_metadata.steam_appid,
+                    default_name: db_game_metadata.default_name,
                 },
             });
         }
