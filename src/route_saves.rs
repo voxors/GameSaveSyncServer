@@ -57,7 +57,7 @@ pub async fn get_game_saves_reference_by_path_id(
 pub async fn post_game_save_by_path_id(
     Path((path_id,)): Path<(i32,)>,
     mut multipart: Multipart,
-) -> StatusCode {
+) -> Result<(StatusCode, String), StatusCode> {
     let uuid = Uuid::new_v4();
     let tmp_path = format!("{}/{}.sav", TMP_DIR, uuid);
     let save_path = format!("{}/{}.sav", SAVE_DIR, uuid);
@@ -88,7 +88,6 @@ pub async fn post_game_save_by_path_id(
         let hash = hash.ok_or("No hash provided")?;
         write_bytes_to_data_file(&tmp_path, &save_path, &file_bytes).await?;
 
-        // Add reference to database
         DATABASE.add_reference_to_save(uuid, hash.as_str().as_ref(), path_id, file_hash)?;
 
         Ok(())
@@ -100,9 +99,9 @@ pub async fn post_game_save_by_path_id(
         //Try to clean up
         let _ = fs::remove_file(&tmp_path);
         let _ = fs::remove_file(&save_path);
-        StatusCode::INTERNAL_SERVER_ERROR
+        Err(StatusCode::INTERNAL_SERVER_ERROR)
     } else {
-        StatusCode::CREATED
+        Ok((StatusCode::CREATED, uuid.to_string()))
     }
 }
 

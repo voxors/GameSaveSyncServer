@@ -10,7 +10,7 @@ use const_format::concatcp;
     params(),
     request_body = GameMetadataCreate,
     responses(
-        (status = 201, description = "game metadata created", body = [String])
+        (status = 201, description = "game metadata created")
     )
 )]
 pub async fn post_game_metadata(Json(payload): Json<GameMetadataCreate>) -> StatusCode {
