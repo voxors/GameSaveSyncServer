@@ -1,7 +1,7 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    file_hash (relative_path) {
+    file_hash (relative_path, game_save_uuid) {
         relative_path -> Text,
         hash -> Text,
         game_save_uuid -> Text,
@@ -46,7 +46,6 @@ diesel::table! {
         uuid -> Text,
         path_id -> Integer,
         time -> Timestamp,
-        hash -> Text,
     }
 }
 

@@ -63,16 +63,11 @@ pub async fn post_game_save_by_path_id(
     let save_path = format!("{}/{}.sav", SAVE_DIR, uuid);
 
     let result: Result<(), Box<dyn std::error::Error + Send + Sync>> = async {
-        let mut hash: Option<String> = None;
         let mut file_hash: Vec<crate::datatype_endpoint::FileHash> = Vec::new();
         let mut file_bytes: Vec<u8> = Vec::new();
 
         while let Some(field) = multipart.next_field().await? {
             match field.name() {
-                Some("hash") => {
-                    let bytes = field.bytes().await?;
-                    hash = Some(String::from_utf8(bytes.to_vec())?);
-                }
                 Some("file_hash") => {
                     let bytes = field.bytes().await?;
                     let json_str = String::from_utf8(bytes.to_vec())?;
@@ -85,10 +80,9 @@ pub async fn post_game_save_by_path_id(
             }
         }
 
-        let hash = hash.ok_or("No hash provided")?;
         write_bytes_to_data_file(&tmp_path, &save_path, &file_bytes).await?;
 
-        DATABASE.add_reference_to_save(uuid, hash.as_str().as_ref(), path_id, file_hash)?;
+        DATABASE.add_reference_to_save(uuid, path_id, file_hash)?;
 
         Ok(())
     }

@@ -285,7 +285,6 @@ impl GameDatabase {
     pub fn add_reference_to_save(
         &self,
         uuid: Uuid,
-        hash: &str,
         path_id: i32,
         files_hash: Vec<FileHash>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -297,7 +296,6 @@ impl GameDatabase {
                 .values(DbGameSave {
                     uuid: uuid.to_string(),
                     path_id,
-                    hash: hash.to_string(),
                     time: time::PrimitiveDateTime::new(now.date(), now.time()),
                 })
                 .execute(connection)?;
@@ -337,7 +335,6 @@ impl GameDatabase {
 
             save_references.push(SaveReference {
                 uuid: game_save.uuid.to_string(),
-                hash: game_save.hash.to_string(),
                 path_id: game_save.path_id,
                 time: game_save.time.assume_utc().unix_timestamp(),
                 files_hash: files_hash_db

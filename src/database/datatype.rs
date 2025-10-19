@@ -45,7 +45,6 @@ pub struct DbGamePath {
 pub struct DbGameSave {
     pub uuid: String,
     pub path_id: i32,
-    pub hash: String,
     pub time: time::PrimitiveDateTime,
 }
 

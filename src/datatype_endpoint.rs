@@ -9,7 +9,6 @@ use utoipa::{IntoParams, ToSchema};
 #[derive(ToSchema)]
 #[allow(unused)]
 pub struct UploadedSave {
-    pub hash: Option<String>,
     #[schema(value_type = String, format = Binary)]
     pub file: Vec<u8>,
     #[schema(value_type = String, example = json!([{"relative_path": "file.txt", "hash": "abc123"}]))]
@@ -114,6 +113,5 @@ pub struct SaveReference {
     pub uuid: String,
     pub path_id: i32,
     pub time: i64,
-    pub hash: String,
     pub files_hash: Vec<FileHash>,
 }

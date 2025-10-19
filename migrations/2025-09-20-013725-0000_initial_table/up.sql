@@ -34,7 +34,6 @@ CREATE TABLE game_save (
     uuid TEXT NOT NULL PRIMARY KEY,
     path_id INTEGER NOT NULL,
     time TIMESTAMP NOT NULL,
-    hash TEXT NOT NULL,
     FOREIGN KEY(path_id) REFERENCES game_path(id)
     );
 
