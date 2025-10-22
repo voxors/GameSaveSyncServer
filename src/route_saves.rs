@@ -84,6 +84,15 @@ pub async fn post_game_save_by_path_id(
 
         DATABASE.add_reference_to_save(uuid, path_id, file_hash)?;
 
+        if let Some(mut saves_ref) = DATABASE.get_reference_to_save_by_path_id(path_id)? {
+            saves_ref.sort_by_key(|save_ref| save_ref.time);
+            while saves_ref.len() > 5 {
+                let old = saves_ref.remove(0);
+                let old_path = format!("{}/{}.sav", SAVE_DIR, old.uuid);
+                let _ = std::fs::remove_file(&old_path);
+            }
+        }
+
         Ok(())
     }
     .await;

@@ -316,7 +316,7 @@ impl GameDatabase {
     pub fn get_reference_to_save_by_path_id(
         &self,
         path_id: i32,
-    ) -> Result<Option<Vec<SaveReference>>, Box<dyn std::error::Error>> {
+    ) -> Result<Option<Vec<SaveReference>>, Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         let save_rows = game_save::table
