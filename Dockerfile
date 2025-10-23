@@ -22,6 +22,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+COPY --from=builder /usr/src/app/migrations ./GameSaveServer/migrations
 COPY --from=builder /usr/src/app/target/release/GameSaveServer ./GameSaveServer
 RUN mkdir -p data
 VOLUME /app/data
