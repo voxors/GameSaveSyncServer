@@ -3,9 +3,7 @@ name: Build & publish Docker image
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags: ["*"]
 
 jobs:
   docker:
@@ -32,3 +30,4 @@ jobs:
           tags: |
             voxors/gamesavesyncserver:latest
             voxors/gamesavesyncserver:${{ github.sha }}
+            voxors/gamesavesyncserver:${{ github.ref_name }}
