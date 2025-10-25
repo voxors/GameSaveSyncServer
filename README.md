@@ -1,6 +1,14 @@
-# GameSaveSyncServer
+<h3 align="center">
+    <img src="https://raw.githubusercontent.com/voxors/GameSaveSyncServer/main/res/icon/GameSaveSyncServer.png" width="100" alt="GameSaveSyncServer Logo"/></br>
+</h3>
 
-Application related to GameSaveSyncClient.
+<p align="center">
+    <a href="https://github.com/voxors/GameSaveSyncServer/stargazers"><img src="https://img.shields.io/github/stars/voxors/GameSaveSyncServer?colorA=282c34&colorB=c678dd&style=for-the-badge"></a>
+    <a href="https://github.com/voxors/GameSaveSyncServer/issues"><img src="https://img.shields.io/github/issues/voxors/GameSaveSyncServer?colorA=282c34&colorB=d19a66&style=for-the-badge"></a>
+    <a href="https://github.com/voxors/GameSaveSyncServer/contributors"><img src="https://img.shields.io/github/contributors/voxors/GameSaveSyncServer?colorA=282c34&colorB=98c379&style=for-the-badge"></a>
+</p>
+
+Server for the application [GameSaveSyncClient](https://github.com/voxors/GameSaveSyncClient).
 
 ## Objective
 
@@ -63,6 +71,6 @@ docker run -p 3000:3000 -v ./data:/app/data gamesavesyncserver
 
 ## License
 
-MIT © 2025 Jonathan Croteau-Dicaire
+GameSaveSyncServer is licensed under the [MIT license](LICENSE).
 
 ---
