@@ -2,6 +2,7 @@ use crate::datatype_endpoint::{
     Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate, OS, SavePath,
     SavePathCreate, SaveReference, UploadedFileYaml, UploadedSave,
 };
+use crate::route_dbinfo::__path_get_db_uuid;
 use crate::route_executable::{
     __path_get_game_executables, __path_get_game_executables_by_os, __path_post_game_executable,
 };
@@ -21,6 +22,7 @@ use utoipa::OpenApi;
 #[derive(OpenApi)]
 #[openapi(
     paths(
+        get_db_uuid,
         get_game_executables,
         get_game_executables_by_os,
         get_game_metadata,

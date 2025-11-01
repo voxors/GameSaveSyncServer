@@ -1,6 +1,13 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    db_info (id) {
+        id -> Nullable<Integer>,
+        db_uuid -> Text,
+    }
+}
+
+diesel::table! {
     file_hash (relative_path, game_save_uuid) {
         relative_path -> Text,
         hash -> Text,
@@ -56,6 +63,7 @@ diesel::joinable!(game_path -> game_metadata (game_metadata_id));
 diesel::joinable!(game_save -> game_path (path_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    db_info,
     file_hash,
     game_alt_name,
     game_executable,
