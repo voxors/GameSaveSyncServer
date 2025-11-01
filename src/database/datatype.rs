@@ -1,5 +1,5 @@
 use crate::database::schema::{
-    file_hash, game_alt_name, game_executable, game_metadata, game_path, game_save,
+    db_info, file_hash, game_alt_name, game_executable, game_metadata, game_path, game_save,
 };
 use crate::datatype_endpoint::OS;
 use diesel::prelude::{Associations, Identifiable};
@@ -56,4 +56,12 @@ pub struct DbFileHash {
     pub relative_path: String,
     pub hash: String,
     pub game_save_uuid: String,
+}
+
+#[derive(Insertable, Selectable, Queryable, PartialEq)]
+#[diesel(primary_key(id))]
+#[diesel(table_name = db_info)]
+pub struct DbDbInfo {
+    pub id: Option<i32>,
+    pub db_uuid: String,
 }

@@ -5,6 +5,7 @@ mod file_system;
 mod ludusavi;
 mod ludusavi_datatype;
 mod openapi;
+mod route_dbinfo;
 mod route_executable;
 mod route_games;
 mod route_paths;
@@ -15,6 +16,7 @@ use crate::const_var::{DATA_DIR, MAX_BODY_SIZE, ROOT_API_PATH};
 use crate::database::interface::GameDatabase;
 use crate::file_system::create_fs_structure;
 use crate::openapi::ApiDoc;
+use crate::route_dbinfo::get_db_uuid;
 use crate::route_executable::{
     get_game_executables, get_game_executables_by_os, post_game_executable,
 };
@@ -63,6 +65,7 @@ async fn main() {
         )
         .route("/saves/{Uuid}", get(get_game_save_by_uuid))
         .route("/yaml/ludusavi", post(post_ludusavi_yaml))
+        .route("/uuid", get(get_db_uuid))
         .layer(DefaultBodyLimit::max(MAX_BODY_SIZE));
 
     let swagger_router =

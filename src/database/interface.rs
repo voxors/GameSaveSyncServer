@@ -1,8 +1,9 @@
 use crate::database::datatype::{
-    DbFileHash, DbGameExecutable, DbGameMetadata, DbGameName, DbGamePath, DbGameSave,
+    DbDbInfo, DbFileHash, DbGameExecutable, DbGameMetadata, DbGameName, DbGamePath, DbGameSave,
 };
+
 use crate::database::schema::{
-    file_hash, game_alt_name, game_executable, game_metadata, game_path, game_save,
+    db_info, file_hash, game_alt_name, game_executable, game_metadata, game_path, game_save,
 };
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate, OS, SavePath,
@@ -28,13 +29,24 @@ impl GameDatabase {
             .build(manager)
             .expect("Failed to create pool");
 
+        let mut conn = pool.get().expect("Failed to get DB connection");
+        conn.run_pending_migrations(MIGRATIONS)
+            .expect("Failed to run database migrations");
+
+        let db = Self { pool };
+
+        match db
+            .get_database_uuid()
+            .expect("unable to contact the db at creation")
         {
-            let mut conn = pool.get().expect("Failed to get DB connection");
-            conn.run_pending_migrations(MIGRATIONS)
-                .expect("Failed to run database migrations");
+            Some(_) => (),
+            None => {
+                db.add_database_uuid(Uuid::new_v4())
+                    .expect("unable to add initial uuid");
+            }
         }
 
-        Self { pool }
+        db
     }
 
     pub fn add_game_metadata(
@@ -348,5 +360,35 @@ impl GameDatabase {
         }
 
         Ok(Some(save_references))
+    }
+
+    pub fn get_database_uuid(
+        &self,
+    ) -> Result<Option<Uuid>, Box<dyn std::error::Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+        let maybe_db_info: Option<DbDbInfo> = db_info::table
+            .select(DbDbInfo::as_select())
+            .first(connection)
+            .optional()?;
+
+        match maybe_db_info {
+            Some(db_info) => Ok(Some(Uuid::parse_str(&db_info.db_uuid)?)),
+            None => Ok(None),
+        }
+    }
+
+    pub fn add_database_uuid(
+        &self,
+        uuid: Uuid,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+        diesel::insert_into(db_info::table)
+            .values(DbDbInfo {
+                id: None,
+                db_uuid: uuid.to_string(),
+            })
+            .execute(connection)?;
+
+        Ok(())
     }
 }
