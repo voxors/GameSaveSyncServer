@@ -18,9 +18,9 @@ pub fn bearer_token_auth(
                 .status(StatusCode::UNAUTHORIZED)
                 .body(Body::empty())
             {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("Response builder error: {e}");
+                Ok(response) => response,
+                Err(error) => {
+                    eprintln!("Response builder error: {error}");
                     axum::http::Response::new(Body::empty())
                 }
             },

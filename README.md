@@ -60,8 +60,12 @@ docker run -p 3000:3000 -v ./data:/app/data gamesavesyncserver
 
 ---
 
-## Development
+## Authentication
+The server uses a bearer token for all authenticated requests.  
+When the server starts for the first time, it generates a random token, stores it in the database, and prints it to stdout.  
+Clients should save this token and include it in the `Authorization: Bearer <token>` header for all API calls.
 
+## Development
 - **Migrations** – Add new migrations in `migrations/` and run `diesel migration run`.
 - **Testing** – Unit tests are in `tests/` (not yet added). Run with `cargo test`.
 - **Formatting** – `cargo fmt`.
