@@ -1,9 +1,11 @@
 use crate::database::datatype::{
-    DbDbInfo, DbFileHash, DbGameExecutable, DbGameMetadata, DbGameName, DbGamePath, DbGameSave,
+    DbApiTokens, DbDbInfo, DbFileHash, DbGameExecutable, DbGameMetadata, DbGameName, DbGamePath,
+    DbGameSave,
 };
 
 use crate::database::schema::{
-    db_info, file_hash, game_alt_name, game_executable, game_metadata, game_path, game_save,
+    api_tokens, db_info, file_hash, game_alt_name, game_executable, game_metadata, game_path,
+    game_save,
 };
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate, OS, SavePath,
@@ -37,13 +39,24 @@ impl GameDatabase {
 
         match db
             .get_database_uuid()
-            .expect("unable to contact the db at creation")
+            .expect("unable to get uuid the db at uuid initial validation")
         {
             Some(_) => (),
             None => {
                 db.add_database_uuid(Uuid::new_v4())
                     .expect("unable to add initial uuid");
             }
+        }
+
+        let api_tokens = db
+            .get_api_tokens()
+            .expect("unable to get api_tokens the db at api_tokens initial validation");
+
+        if api_tokens.is_empty() {
+            let uuid = Uuid::new_v4();
+            db.add_api_tokens(vec![uuid])
+                .expect("unable to add initial api tokens");
+            println!("Initial API token : {uuid}")
         }
 
         db
@@ -387,6 +400,58 @@ impl GameDatabase {
                 id: None,
                 db_uuid: uuid.to_string(),
             })
+            .execute(connection)?;
+
+        Ok(())
+    }
+
+    pub fn get_api_tokens(&self) -> Result<Vec<Uuid>, Box<dyn std::error::Error + Send + Sync>> {
+        let mut api_tokens = Vec::<Uuid>::new();
+
+        let connection = &mut self.pool.get()?;
+        let maybe_api_tokens = api_tokens::table
+            .select(DbApiTokens::as_select())
+            .load::<DbApiTokens>(connection)
+            .optional()?;
+
+        if let Some(db_api_tokens) = maybe_api_tokens {
+            db_api_tokens
+                .iter()
+                .filter_map(|db_api_token| Uuid::parse_str(&db_api_token.api_token).ok())
+                .for_each(|uuid| api_tokens.push(uuid));
+        }
+
+        Ok(api_tokens)
+    }
+
+    pub fn add_api_tokens(
+        &self,
+        uuids: Vec<Uuid>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let db_api_tokens: Vec<DbApiTokens> = uuids
+            .iter()
+            .map(|uuid| DbApiTokens {
+                id: None,
+                api_token: uuid.to_string(),
+            })
+            .collect();
+
+        let connection = &mut self.pool.get()?;
+        diesel::insert_into(api_tokens::table)
+            .values(db_api_tokens)
+            .execute(connection)?;
+
+        Ok(())
+    }
+
+    pub fn remove_api_tokens(
+        &self,
+        uuids: Vec<Uuid>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let db_api_tokens: Vec<String> = uuids.iter().map(|uuid| uuid.to_string()).collect();
+
+        let connection = &mut self.pool.get()?;
+        diesel::delete(api_tokens::table.filter(api_tokens::api_token.eq_any(&db_api_tokens)))
             .execute(connection)?;
 
         Ok(())
