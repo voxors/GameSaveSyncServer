@@ -1,5 +1,5 @@
 <h3 align="center">
-    <img src="https://raw.githubusercontent.com/voxors/GameSaveSyncServer/main/res/icon/GameSaveSyncServer.png" width="100" alt="GameSaveSyncServer Logo"/></br>
+    <img src="https://raw.githubusercontent.com/voxors/GameSaveSyncServer/main/res/icon/GameSaveSyncServer.svg" width="100" alt="GameSaveSyncServer Logo"/></br>
 </h3>
 
 <p align="center">
