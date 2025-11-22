@@ -18,6 +18,7 @@ use crate::route_saves::{
 };
 use crate::route_yaml_import::__path_post_ludusavi_yaml;
 use utoipa::OpenApi;
+use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -49,6 +50,25 @@ use utoipa::OpenApi;
         GameMetadata,
         SaveReference,
         OS,
-    ))
+    ),),
+    security(
+        ("bearer_auth" = [])
+    ),
+    modifiers(&GameSaveSyncSecurityAddon)
 )]
 pub struct ApiDoc;
+
+pub struct GameSaveSyncSecurityAddon;
+
+impl utoipa::Modify for GameSaveSyncSecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        let components = openapi
+            .components
+            .get_or_insert_with(utoipa::openapi::Components::new);
+
+        components.add_security_scheme(
+            "bearer_auth",
+            SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+        );
+    }
+}

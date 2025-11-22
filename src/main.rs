@@ -1,3 +1,4 @@
+mod auth;
 mod const_var;
 mod database;
 mod datatype_endpoint;
@@ -12,6 +13,7 @@ mod route_paths;
 mod route_saves;
 mod route_yaml_import;
 
+use crate::auth::bearer_token_auth;
 use crate::const_var::{DATA_DIR, MAX_BODY_SIZE, ROOT_API_PATH};
 use crate::database::interface::GameDatabase;
 use crate::file_system::create_fs_structure;
@@ -30,6 +32,7 @@ use axum::extract::DefaultBodyLimit;
 use axum::{Router, routing::get, routing::post};
 use const_format::concatcp;
 use once_cell::sync::Lazy;
+use tower_http::validate_request::ValidateRequestHeaderLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -55,8 +58,10 @@ async fn main() {
             "/paths/{Id}/saves",
             get(get_game_saves_reference_by_path_id),
         )
-        .route("/paths/{Id}/saves/upload", post(post_game_save_by_path_id))
-        .layer(DefaultBodyLimit::max(MAX_BODY_SIZE))
+        .route(
+            "/paths/{Id}/saves/upload",
+            post(post_game_save_by_path_id).route_layer(DefaultBodyLimit::max(MAX_BODY_SIZE)),
+        )
         .route("/games/{Id}/executables", get(get_game_executables))
         .route("/games/{Id}/executables", post(post_game_executable))
         .route(
@@ -64,9 +69,12 @@ async fn main() {
             get(get_game_executables_by_os),
         )
         .route("/saves/{Uuid}", get(get_game_save_by_uuid))
-        .route("/yaml/ludusavi", post(post_ludusavi_yaml))
+        .route(
+            "/yaml/ludusavi",
+            post(post_ludusavi_yaml).route_layer(DefaultBodyLimit::max(MAX_BODY_SIZE)),
+        )
         .route("/uuid", get(get_db_uuid))
-        .layer(DefaultBodyLimit::max(MAX_BODY_SIZE));
+        .layer(ValidateRequestHeaderLayer::custom(bearer_token_auth));
 
     let swagger_router =
         SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi());
