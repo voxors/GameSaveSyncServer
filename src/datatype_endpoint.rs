@@ -23,7 +23,17 @@ pub struct UploadedFileYaml {
 }
 
 #[derive(
-    Serialize, Deserialize, ToSchema, Debug, Clone, Copy, PartialEq, Eq, AsExpression, FromSqlRow,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    AsExpression,
+    FromSqlRow,
+    Hash,
 )]
 #[diesel(sql_type = Text)]
 #[serde(rename_all = "lowercase")]

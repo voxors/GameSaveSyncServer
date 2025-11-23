@@ -14,10 +14,10 @@ use const_format::concatcp;
     )
 )]
 pub async fn post_game_metadata(Json(payload): Json<GameMetadataCreate>) -> StatusCode {
-    match DATABASE.add_game_metadata(&payload) {
+    match DATABASE.add_games_metadata(vec![&payload]) {
         Ok(()) => StatusCode::CREATED,
         Err(e) => {
-            eprintln!("Error adding game metadata: {}", e);
+            eprintln!("Error adding game metadata: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         }
     }
