@@ -62,19 +62,105 @@ impl GameDatabase {
         db
     }
 
-    pub fn add_game_metadata(
+    pub fn add_games_full(
         &self,
-        game_metadata: &GameMetadataCreate,
+        games: Vec<(
+            GameMetadataCreate,
+            Vec<ExecutableCreate>,
+            Vec<SavePathCreate>,
+        )>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+
+        connection.immediate_transaction(|conn| {
+            for (meta, executables, paths) in games {
+                diesel::insert_into(game_metadata::table)
+                    .values(DbGameMetadata {
+                        id: None,
+                        steam_appid: meta.steam_appid.clone(),
+                        default_name: meta.default_name.clone(),
+                    })
+                    .execute(conn)?;
+
+                let inserted_id: Option<i32> = game_metadata::table
+                    .select(game_metadata::id)
+                    .order(game_metadata::id.desc())
+                    .first(conn)?;
+
+                let inserted_id = match inserted_id {
+                    Some(id) => id,
+                    None => return Err("Failed to get inserted id".into()),
+                };
+
+                if !meta.known_name.is_empty() {
+                    diesel::insert_into(game_alt_name::table)
+                        .values(
+                            meta.known_name
+                                .iter()
+                                .map(|name| DbGameName {
+                                    name: name.to_string(),
+                                    game_metadata_id: inserted_id,
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                        .execute(conn)?;
+                }
+
+                if !executables.is_empty() {
+                    diesel::insert_into(game_executable::table)
+                        .values(
+                            executables
+                                .iter()
+                                .map(|exe| DbGameExecutable {
+                                    id: None,
+                                    executable: exe.executable.clone(),
+                                    operating_system: exe.operating_system,
+                                    game_metadata_id: inserted_id,
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                        .execute(conn)?;
+                }
+
+                if !paths.is_empty() {
+                    diesel::insert_into(game_path::table)
+                        .values(
+                            paths
+                                .iter()
+                                .map(|p| DbGamePath {
+                                    id: None,
+                                    path: p.path.clone(),
+                                    operating_system: p.operating_system,
+                                    game_metadata_id: inserted_id,
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                        .execute(conn)?;
+                }
+            }
+
+            Ok(())
+        })
+    }
+
+    pub fn add_games_metadata(
+        &self,
+        games_metadata: Vec<&GameMetadataCreate>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
             diesel::insert_into(game_metadata::table)
-                .values(DbGameMetadata {
-                    id: None,
-                    steam_appid: game_metadata.steam_appid.clone(),
-                    default_name: game_metadata.default_name.clone(),
-                })
+                .values(
+                    games_metadata
+                        .iter()
+                        .map(|game_metadata| DbGameMetadata {
+                            id: None,
+                            steam_appid: game_metadata.steam_appid.clone(),
+                            default_name: game_metadata.default_name.clone(),
+                        })
+                        .collect::<Vec<DbGameMetadata>>(),
+                )
                 .execute(connection)?;
 
             let inserted_id: Option<i32> = game_metadata::table
@@ -87,18 +173,20 @@ impl GameDatabase {
                 None => return Err("Failed to get inserted id".into()),
             };
 
-            diesel::insert_into(game_alt_name::table)
-                .values(
-                    game_metadata
-                        .known_name
-                        .iter()
-                        .map(|name| DbGameName {
-                            name: name.to_string(),
-                            game_metadata_id: inserted_id,
-                        })
-                        .collect::<Vec<_>>(),
-                )
-                .execute(connection)?;
+            for game_metadata in games_metadata {
+                diesel::insert_into(game_alt_name::table)
+                    .values(
+                        game_metadata
+                            .known_name
+                            .iter()
+                            .map(|name| DbGameName {
+                                name: name.to_string(),
+                                game_metadata_id: inserted_id,
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                    .execute(connection)?;
+            }
 
             Ok(())
         })
