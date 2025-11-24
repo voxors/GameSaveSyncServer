@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 axum = { version = "0.8.7", features = ["multipart", "macros"] }
+chrono = "0.4.42"
 const_format = "0.2.34"
 diesel = { version = "2.3.2", features = ["sqlite", "serde_json", "r2d2", "time"] }
 diesel_migrations = "2.3.0"

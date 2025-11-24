@@ -3,6 +3,8 @@ mod const_var;
 mod database;
 mod datatype_endpoint;
 mod file_system;
+mod job_demo;
+mod job_scheduler;
 mod ludusavi;
 mod ludusavi_datatype;
 mod openapi;
@@ -13,10 +15,14 @@ mod route_paths;
 mod route_saves;
 mod route_yaml_import;
 
+use std::sync::Arc;
+
 use crate::auth::bearer_token_auth;
 use crate::const_var::{DATA_DIR, MAX_BODY_SIZE, ROOT_API_PATH};
 use crate::database::interface::GameDatabase;
 use crate::file_system::create_fs_structure;
+use crate::job_demo::DemoJob;
+use crate::job_scheduler::JobScheduler;
 use crate::openapi::ApiDoc;
 use crate::route_dbinfo::get_db_uuid;
 use crate::route_executable::{
@@ -30,6 +36,7 @@ use crate::route_saves::{
 use crate::route_yaml_import::post_ludusavi_yaml;
 use axum::extract::DefaultBodyLimit;
 use axum::{Router, routing::get, routing::post};
+use chrono::Duration;
 use const_format::concatcp;
 use once_cell::sync::Lazy;
 use tower_http::validate_request::ValidateRequestHeaderLayer;
@@ -46,6 +53,14 @@ async fn main() {
     create_fs_structure().await.unwrap();
     Lazy::force(&DATABASE);
     tracing_subscriber::fmt::init();
+
+    let job_demo = DemoJob;
+
+    let mut job_scheduler = JobScheduler::new();
+    job_scheduler
+        .add_job(Arc::new(job_demo), Duration::seconds(5))
+        .await;
+    job_scheduler.start_scheduler();
 
     let api_router = Router::new()
         .route("/games", post(post_game_metadata))
