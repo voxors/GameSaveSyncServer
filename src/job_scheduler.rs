@@ -74,12 +74,9 @@ async fn scheduler_loop(jobs: Arc<Mutex<Vec<JobEntry>>>, task_cancel: Cancellati
 }
 
 async fn run_job(job: Arc<Mutex<dyn Job>>, token: CancellationToken, is_running: Arc<AtomicBool>) {
-    if let Err(err) = job.lock().await.execute(token.clone()).await {
-        eprintln!(
-            "Error while executing job: {}, err: {}",
-            job.lock().await.name(),
-            err
-        );
+    let mut job = job.lock().await;
+    if let Err(err) = job.execute(token.clone()).await {
+        eprintln!("Error while executing job: {}, err: {}", job.name(), err);
     }
     is_running.store(false, Ordering::Relaxed);
 }
