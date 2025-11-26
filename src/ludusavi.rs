@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use itertools::Itertools;
 use tokio::{fs, io::AsyncReadExt};
 
@@ -13,7 +15,9 @@ type GameFull = (
     Vec<SavePathCreate>,
 );
 
-pub async fn yaml_import(yaml_path: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn yaml_import(
+    yaml_path: impl AsRef<Path>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut file = fs::File::open(yaml_path).await?;
     let mut yaml_str = String::new();
     file.read_to_string(&mut yaml_str).await?;
