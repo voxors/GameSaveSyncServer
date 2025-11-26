@@ -3,7 +3,7 @@ mod const_var;
 mod database;
 mod datatype_endpoint;
 mod file_system;
-mod job_demo;
+mod job_ludusavi;
 mod job_scheduler;
 mod ludusavi;
 mod ludusavi_datatype;
@@ -15,13 +15,11 @@ mod route_paths;
 mod route_saves;
 mod route_yaml_import;
 
-use std::sync::Arc;
-
 use crate::auth::bearer_token_auth;
 use crate::const_var::{DATA_DIR, MAX_BODY_SIZE, ROOT_API_PATH};
 use crate::database::interface::GameDatabase;
 use crate::file_system::create_fs_structure;
-use crate::job_demo::DemoJob;
+use crate::job_ludusavi::LudusaviJob;
 use crate::job_scheduler::JobScheduler;
 use crate::openapi::ApiDoc;
 use crate::route_dbinfo::get_db_uuid;
@@ -54,11 +52,9 @@ async fn main() {
     Lazy::force(&DATABASE);
     tracing_subscriber::fmt::init();
 
-    let job_demo = DemoJob;
-
     let mut job_scheduler = JobScheduler::new();
     job_scheduler
-        .add_job(Arc::new(job_demo), Duration::seconds(5))
+        .add_job(LudusaviJob::default(), Duration::hours(1))
         .await;
     job_scheduler.start_scheduler();
 

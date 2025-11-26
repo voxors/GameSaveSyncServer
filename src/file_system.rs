@@ -1,20 +1,22 @@
+use std::path::Path;
+
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
 use crate::const_var::{DATA_DIR, TMP_DIR};
 
 pub async fn write_bytes_to_data_file(
-    tmp_path: &str,
-    file_path: &str,
+    tmp_path: impl AsRef<Path>,
+    file_path: impl AsRef<Path>,
     bytes: &[u8],
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    write_bytes_to_tmp_file(tmp_path, bytes).await?;
-    std::fs::rename(tmp_path, file_path)?;
+    write_bytes_to_tmp_file(&tmp_path, bytes).await?;
+    std::fs::rename(&tmp_path, file_path)?;
     Ok(())
 }
 
 pub async fn write_bytes_to_tmp_file(
-    tmp_path: &str,
+    tmp_path: impl AsRef<Path>,
     bytes: &[u8],
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut tmp_file = File::create(&tmp_path).await?;

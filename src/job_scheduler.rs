@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use std::{
     fmt::Debug,
@@ -10,12 +11,13 @@ use std::{
 use tokio::{sync::Mutex, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
+#[async_trait]
 pub trait Job: Send + Sync + Debug {
     fn name(&self) -> &'static str;
-    fn execute(
-        &self,
+    async fn execute(
+        &mut self,
         cancellation_token: CancellationToken,
-    ) -> Result<(), Box<dyn std::error::Error>>;
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
 #[derive(Debug)]
@@ -23,20 +25,20 @@ struct JobEntry {
     pub interval: chrono::Duration,
     pub last_executed: DateTime<Utc>,
     pub cancellation_token: CancellationToken,
-    pub job: Arc<dyn Job>,
+    pub job: Arc<Mutex<dyn Job>>,
     pub is_running: Arc<AtomicBool>,
 }
 
+#[derive(Debug)]
 pub struct JobScheduler {
     jobs: Arc<Mutex<Vec<JobEntry>>>,
     scheduler_task_handle: Option<JoinHandle<()>>,
     cancellation_token: CancellationToken,
 }
 
-fn collect_ready_jobs(
-    jobs: &mut [JobEntry],
-    task_cancel: &CancellationToken,
-) -> Vec<(Arc<dyn Job>, CancellationToken, Arc<AtomicBool>)> {
+type ToRunType = (Arc<Mutex<dyn Job>>, CancellationToken, Arc<AtomicBool>);
+
+fn collect_ready_jobs(jobs: &mut [JobEntry], task_cancel: &CancellationToken) -> Vec<ToRunType> {
     let now = Utc::now();
     jobs.iter_mut()
         .filter_map(|job_entry| {
@@ -71,9 +73,13 @@ async fn scheduler_loop(jobs: Arc<Mutex<Vec<JobEntry>>>, task_cancel: Cancellati
     }
 }
 
-async fn run_job(job: Arc<dyn Job>, token: CancellationToken, is_running: Arc<AtomicBool>) {
-    if let Err(err) = job.execute(token.clone()) {
-        eprintln!("Error while executing job: {}, err: {}", job.name(), err);
+async fn run_job(job: Arc<Mutex<dyn Job>>, token: CancellationToken, is_running: Arc<AtomicBool>) {
+    if let Err(err) = job.lock().await.execute(token.clone()).await {
+        eprintln!(
+            "Error while executing job: {}, err: {}",
+            job.lock().await.name(),
+            err
+        );
     }
     is_running.store(false, Ordering::Relaxed);
 }
@@ -107,23 +113,14 @@ impl JobScheduler {
         }
     }
 
-    pub async fn add_job(&mut self, job: Arc<dyn Job>, interval: chrono::Duration) {
+    pub async fn add_job(&mut self, job: impl Job + 'static, interval: chrono::Duration) {
         self.jobs.lock().await.push(JobEntry {
             interval,
             last_executed: DateTime::<Utc>::MIN_UTC,
-            job,
+            job: Arc::new(Mutex::new(job)),
             cancellation_token: CancellationToken::default(),
             is_running: Arc::new(AtomicBool::default()),
         });
-    }
-
-    pub async fn remove_job(&mut self, job: Arc<dyn Job>) {
-        let mut jobs = self.jobs.lock().await;
-        if let Some(idx) = jobs.iter().position(|entry| entry.job.name() == job.name()) {
-            let entry = jobs.remove(idx);
-            entry.cancellation_token.cancel();
-            entry.is_running.store(false, Ordering::Relaxed);
-        }
     }
 }
 
