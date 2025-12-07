@@ -21,8 +21,6 @@ use uuid::Uuid;
     ),
     responses(
         (status = 200, description = "game saves returned", body = [SaveReference]),
-        (status = 400, description = "invalid operating system"),
-        (status = 404, description = "game not found")
     )
 )]
 pub async fn get_game_saves_reference_by_path_id(
@@ -30,7 +28,7 @@ pub async fn get_game_saves_reference_by_path_id(
 ) -> Result<Json<Vec<SaveReference>>, StatusCode> {
     match DATABASE.get_reference_to_save_by_path_id(path_id) {
         Ok(Some(data)) => Ok(Json(data)),
-        Ok(None) => Err(StatusCode::NOT_FOUND),
+        Ok(None) => Ok(Json(Vec::new())),
         Err(e) => {
             eprintln!("Error getting game saves reference: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
