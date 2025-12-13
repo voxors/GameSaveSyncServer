@@ -13,7 +13,6 @@ COPY . .
 RUN cargo fetch
 RUN cargo build --release
 
-
 FROM debian:bookworm-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -21,10 +20,14 @@ RUN apt-get update && \
     ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-COPY --from=builder /usr/src/app/migrations ./GameSaveServer/migrations
-COPY --from=builder /usr/src/app/target/release/GameSaveServer ./GameSaveServer
-RUN mkdir -p data
-VOLUME /app/data
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -s /bin/sh appuser
+
+COPY --from=builder --chown=appuser:appuser /usr/src/app/migrations /app/GameSaveServer/migrations
+COPY --from=builder --chown=appuser:appuser /usr/src/app/target/release/GameSaveServer /app/GameSaveServer
+WORKDIR /app/GameSaveServer
+RUN mkdir -p data && chown appuser:appuser data
+USER appuser
+VOLUME /app/GameSaveServer/data
 EXPOSE 3000
 CMD ["./GameSaveServer"]
