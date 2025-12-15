@@ -1,9 +1,5 @@
 import { createContext, useContext } from "react";
-
-export interface AuthContextProps {
-  token: string | null;
-  setToken: (t: string | null) => void;
-}
+import type { AuthContextProps } from "./authProvider";
 
 export const AuthContext = createContext<AuthContextProps | undefined>(
   undefined,
