@@ -12,16 +12,20 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        working-directory: ./backend
         run: cargo build --verbose
       - name: Run tests
-        working-directory: ./backend
         run: cargo test --verbose
   clippy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -29,8 +33,10 @@ jobs:
         run: cargo clippy -- -D warnings
   formatting:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
     steps:
       - uses: actions/checkout@v4
       - name: Run fmt check
-        working-directory: ./backend
         run: cargo fmt -- --check
