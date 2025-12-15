@@ -48,7 +48,7 @@ pub async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode>
         ("Id" = String, Path, description = "Id of the game")
     ),
     responses(
-        (status = 200, description = "game metadata returned, body = [GameMetadata]"),
+        (status = 200, description = "game metadata returned", body = GameMetadata),
         (status = 404, description = "game not found")
     )
 )]
