@@ -1,4 +1,4 @@
-FROM rust:latest AS builder
+FROM rust:latest AS backend-builder
 WORKDIR /usr/src/app
 
 RUN apt-get update && \
@@ -8,7 +8,7 @@ RUN apt-get update && \
     libsqlite3-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY . .
+COPY backend .
 
 RUN cargo fetch
 RUN cargo build --release
@@ -23,8 +23,8 @@ RUN apt-get update && \
 RUN groupadd -g 1000 appuser && \
     useradd -u 1000 -g appuser -s /bin/sh appuser
 
-COPY --from=builder --chown=appuser:appuser /usr/src/app/migrations /app/GameSaveServer/migrations
-COPY --from=builder --chown=appuser:appuser /usr/src/app/target/release/GameSaveServer /app/GameSaveServer
+COPY --from=backend-builder --chown=appuser:appuser /usr/src/app/migrations /app/GameSaveServer/migrations
+COPY --from=backend-builder --chown=appuser:appuser /usr/src/app/target/release/GameSaveServer /app/GameSaveServer
 WORKDIR /app/GameSaveServer
 RUN mkdir -p data && chown appuser:appuser data
 USER appuser
