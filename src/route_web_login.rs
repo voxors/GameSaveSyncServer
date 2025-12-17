@@ -1,6 +1,6 @@
 use askama::Template;
 use axum::{
-    extract::Form,
+    Json,
     http::{HeaderValue, StatusCode, header},
     response::{Html, IntoResponse, Redirect},
 };
@@ -25,7 +25,7 @@ pub async fn get_login() -> impl IntoResponse {
 }
 
 pub async fn post_login(
-    Form(form): Form<LoginForm>,
+    Json(form): Json<LoginForm>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     if DATABASE
         .get_api_tokens()
