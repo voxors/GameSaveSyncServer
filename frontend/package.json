@@ -2,13 +2,17 @@
   "name": "gamesavesyncserver",
   "private": true,
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.18",
     "autoprefixer": "^10.4.23",
     "npm-check-updates": "^19.2.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
-    "@tailwindcss/cli": "^4.1.18"
+    "esbuild": "^0.27.2",
+    "typescript": "^5.9.3"
   },
   "scripts": {
-    "build:css": "npx tailwindcss -i ./css/base_style.css -o ./dist/generated/css/base_style.css"
+    "build:css": "npx tailwindcss -i ./css/base_style.css -o ./dist/generated/css/base_style.css",
+    "build:js": "npx tsc --project tsconfig.json",
+    "build:js-sourceMap": "npx tsc --project tsconfig.json --sourceMap"
   }
 }

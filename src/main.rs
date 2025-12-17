@@ -122,6 +122,9 @@ async fn main() {
         )
         .layer(TraceLayer::new_for_http());
 
+    #[cfg(debug_assertions)]
+    let app = app.nest_service("/ts", ServeDir::new("frontend/ts"));
+
     tracing::info!("Server Starting");
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
