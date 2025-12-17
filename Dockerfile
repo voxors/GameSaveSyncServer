@@ -9,19 +9,22 @@ RUN apt-get update && \
     npm && \
     rm -rf /var/lib/apt/lists/*
 
-COPY package.json package.json
-COPY package-lock.json package-lock.json
-COPY tailwind.config.js tailwind.config.js
-
+WORKDIR /usr/src/app/frontend
+COPY frontend/package.json package.json
+COPY frontend/package-lock.json package-lock.json
+COPY frontend/tailwind.config.js tailwind.config.js
+COPY frontend/css css
+COPY frontend/dist/static dist/static
+COPY frontend/html html
 RUN npm install
+WORKDIR /usr/src/app
 
 COPY Cargo.toml Cargo.toml
 COPY Cargo.lock Cargo.lock
+COPY askama.toml askama.toml
 COPY build.rs build.rs
 COPY src src
-COPY templates templates
 COPY migrations migrations
-COPY static static
 RUN cargo build --release
 
 FROM debian:bookworm-slim
@@ -36,8 +39,8 @@ RUN groupadd -g 1000 appuser && \
 
 COPY --from=builder --chown=appuser:appuser /usr/src/app/migrations /app/GameSaveServer/migrations
 COPY --from=builder --chown=appuser:appuser /usr/src/app/target/release/GameSaveServer /app/GameSaveServer
-COPY --from=builder --chown=appuser:appuser /usr/src/app/generated /app/GameSaveServer/generated
-COPY --from=builder --chown=appuser:appuser /usr/src/app/static /app/GameSaveServer/static
+COPY --from=builder --chown=appuser:appuser /usr/src/app/frontend/dist/generated /app/GameSaveServer/frontend/dist/generated
+COPY --from=builder --chown=appuser:appuser /usr/src/app/frontend/dist/static /app/GameSaveServer/frontend/dist/static
 WORKDIR /app/GameSaveServer
 RUN mkdir -p data && chown appuser:appuser data
 USER appuser

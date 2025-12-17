@@ -3,4 +3,5 @@ words = [
     "rustls",
     "serde",
     "clippy",
+    "askama",
 ]

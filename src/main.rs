@@ -117,7 +117,8 @@ async fn main() {
         .merge(web_router)
         .nest_service(
             "/assets",
-            ServeDir::new("generated").fallback(ServeDir::new("static")),
+            ServeDir::new("frontend/dist/generated")
+                .fallback(ServeDir::new("frontend/dist/static")),
         )
         .layer(TraceLayer::new_for_http());
 

@@ -9,6 +9,6 @@
     "@tailwindcss/cli": "^4.1.18"
   },
   "scripts": {
-    "build:css": "npx tailwindcss -i ./templates/base_style.css -o ./generated/css/base_style.css"
+    "build:css": "npx tailwindcss -i ./css/base_style.css -o ./dist/generated/css/base_style.css"
   }
 }
