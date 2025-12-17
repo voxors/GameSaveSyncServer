@@ -115,7 +115,10 @@ async fn main() {
         .nest(ROOT_API_PATH, api_router)
         .merge(swagger_router)
         .merge(web_router)
-        .nest_service("/assets", ServeDir::new("static"))
+        .nest_service(
+            "/assets",
+            ServeDir::new("generated").fallback(ServeDir::new("static")),
+        )
         .layer(TraceLayer::new_for_http());
 
     tracing::info!("Server Starting");
