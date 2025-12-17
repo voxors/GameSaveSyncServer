@@ -2,4 +2,5 @@ words = [
     "ludusavi",
     "rustls",
     "serde",
+    "clippy",
 ]

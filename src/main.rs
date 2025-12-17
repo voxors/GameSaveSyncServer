@@ -13,6 +13,8 @@ mod route_executable;
 mod route_games;
 mod route_paths;
 mod route_saves;
+mod route_web_dashboard;
+mod route_web_login;
 mod route_yaml_import;
 
 use crate::auth::bearer_token_auth;
@@ -31,13 +33,17 @@ use crate::route_paths::{get_game_paths, get_game_paths_by_os, post_game_path};
 use crate::route_saves::{
     get_game_save_by_uuid, get_game_saves_reference_by_path_id, post_game_save_by_path_id,
 };
+use crate::route_web_dashboard::index_handler;
+use crate::route_web_login::{get_login, post_login};
 use crate::route_yaml_import::post_ludusavi_yaml;
 use axum::extract::DefaultBodyLimit;
 use axum::{Router, routing::get, routing::post};
 use chrono::Duration;
 use const_format::concatcp;
 use once_cell::sync::Lazy;
-use tower_http::validate_request::ValidateRequestHeaderLayer;
+use tower_http::{
+    services::ServeDir, trace::TraceLayer, validate_request::ValidateRequestHeaderLayer,
+};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -50,7 +56,13 @@ pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| {
 async fn main() {
     create_fs_structure().await.unwrap();
     Lazy::force(&DATABASE);
-    tracing_subscriber::fmt::init();
+
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "debug".into()),
+        )
+        .init();
 
     let mut job_scheduler = JobScheduler::new();
     job_scheduler
@@ -59,11 +71,12 @@ async fn main() {
     job_scheduler.start_scheduler();
 
     let api_router = Router::new()
-        .route("/games", post(post_game_metadata))
-        .route("/games", get(get_games_metadata))
+        .route("/games", get(get_games_metadata).post(post_game_metadata))
         .route("/games/{Id}", get(get_game_metadata))
-        .route("/games/{Id}/paths", get(get_game_paths))
-        .route("/games/{Id}/paths", post(post_game_path))
+        .route(
+            "/games/{Id}/paths",
+            get(get_game_paths).post(post_game_path),
+        )
         .route("/games/{Id}/paths/{OS}", get(get_game_paths_by_os))
         .route(
             "/paths/{Id}/saves",
@@ -73,8 +86,10 @@ async fn main() {
             "/paths/{Id}/saves/upload",
             post(post_game_save_by_path_id).route_layer(DefaultBodyLimit::max(MAX_BODY_SIZE)),
         )
-        .route("/games/{Id}/executables", get(get_game_executables))
-        .route("/games/{Id}/executables", post(post_game_executable))
+        .route(
+            "/games/{Id}/executables",
+            get(get_game_executables).post(post_game_executable),
+        )
         .route(
             "/games/{Id}/executables/{OS}",
             get(get_game_executables_by_os),
@@ -90,10 +105,18 @@ async fn main() {
     let swagger_router =
         SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi());
 
+    let web_router = Router::new()
+        .route("/", get(index_handler))
+        .route("/login", get(get_login).post(post_login));
+
     let app = Router::new()
         .nest(ROOT_API_PATH, api_router)
-        .merge(swagger_router);
+        .merge(swagger_router)
+        .merge(web_router)
+        .nest_service("/assets", ServeDir::new("static"))
+        .layer(TraceLayer::new_for_http());
 
+    tracing::info!("Server Starting");
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
