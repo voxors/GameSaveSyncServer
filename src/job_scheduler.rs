@@ -75,8 +75,9 @@ async fn scheduler_loop(jobs: Arc<Mutex<Vec<JobEntry>>>, task_cancel: Cancellati
 
 async fn run_job(job: Arc<Mutex<dyn Job>>, token: CancellationToken, is_running: Arc<AtomicBool>) {
     let mut job = job.lock().await;
+    tracing::info!("Running job: {}", job.name());
     if let Err(err) = job.execute(token.clone()).await {
-        eprintln!("Error while executing job: {}, err: {}", job.name(), err);
+        tracing::error!("Error while executing job: {}, err: {}", job.name(), err);
     }
     is_running.store(false, Ordering::Relaxed);
 }
@@ -97,7 +98,7 @@ impl JobScheduler {
             let jobs = self.jobs.clone();
             self.scheduler_task_handle = Some(tokio::spawn(scheduler_loop(jobs, task_cancel)));
         } else {
-            println!("Tried to start an already started scheduler")
+            tracing::info!("Tried to start an already started scheduler");
         }
     }
 
@@ -106,7 +107,7 @@ impl JobScheduler {
             self.cancellation_token.cancel();
             self.scheduler_task_handle = None;
         } else {
-            println!("Tried to stop an inactive scheduler")
+            tracing::info!("Tried to stop an inactive scheduler")
         }
     }
 

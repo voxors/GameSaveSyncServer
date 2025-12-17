@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,21 +13,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-  clippy:
+      - uses: actions/checkout@v4
+      - name: Install npm
+        run: sudo apt-get update && sudo apt-get install -y npm
+      - name: Install npm dependencies (frontend)
+        run: |
+          cd frontend
+          npm ci
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose
+  formatting:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
-    - uses: actions/checkout@v4
-    - name: Run clippy
-      run: cargo clippy -- -D warnings
-  formating:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Run fmt check
-      run: cargo fmt -- --check
+      - uses: actions/checkout@v4
+      - name: Run fmt check
+        run: cargo fmt -- --check
