@@ -56,7 +56,8 @@ impl GameDatabase {
             let uuid = Uuid::new_v4();
             db.add_api_tokens(vec![uuid])
                 .expect("unable to add initial api tokens");
-            println!("Initial API token : {uuid}")
+
+            tracing::info!("Initial API token : {uuid}");
         }
 
         db

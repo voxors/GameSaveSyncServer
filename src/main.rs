@@ -54,15 +54,15 @@ pub static DATABASE: Lazy<GameDatabase> = Lazy::new(|| {
 
 #[tokio::main]
 async fn main() {
-    create_fs_structure().await.unwrap();
-    Lazy::force(&DATABASE);
-
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "debug".into()),
         )
         .init();
+
+    create_fs_structure().await.unwrap();
+    Lazy::force(&DATABASE);
 
     let mut job_scheduler = JobScheduler::new();
     job_scheduler
