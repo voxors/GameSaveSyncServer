@@ -17,8 +17,8 @@ mod route_web_dashboard;
 mod route_web_login;
 mod route_yaml_import;
 
-use crate::auth::bearer_token_auth;
-use crate::const_var::{DATA_DIR, MAX_BODY_SIZE, ROOT_API_PATH};
+use crate::auth::{bearer_token_auth, cookie_token_auth};
+use crate::const_var::{DATA_DIR, LOGIN_PATH, MAX_BODY_SIZE, ROOT_API_PATH};
 use crate::database::interface::GameDatabase;
 use crate::file_system::create_fs_structure;
 use crate::job_ludusavi::LudusaviJob;
@@ -105,9 +105,11 @@ async fn main() {
     let swagger_router =
         SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi());
 
+    let protected_router = Router::new().route("/", get(index_handler));
+    let login_router = Router::new().route(LOGIN_PATH, get(get_login).post(post_login));
     let web_router = Router::new()
-        .route("/", get(index_handler))
-        .route("/login", get(get_login).post(post_login));
+        .merge(login_router)
+        .merge(protected_router.layer(ValidateRequestHeaderLayer::custom(cookie_token_auth)));
 
     let app = Router::new()
         .nest(ROOT_API_PATH, api_router)

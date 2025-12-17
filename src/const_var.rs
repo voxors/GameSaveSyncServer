@@ -8,3 +8,6 @@ pub const TMP_DIR: &str = concatcp!(DATA_DIR, "/tmp");
 pub const MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.yaml";
 pub const MANIFEST_PATH: &str = concatcp!(TMP_DIR, "/ludusavi_manifest.yaml");
+pub const COOKIE_AUTH_NAME: &str = "auth_token";
+pub const COOKIE_MAX_AGE: u32 = 2628000;
+pub const LOGIN_PATH: &str = "/login";

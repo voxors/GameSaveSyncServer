@@ -6,7 +6,10 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::DATABASE;
+use crate::{
+    DATABASE,
+    const_var::{COOKIE_AUTH_NAME, COOKIE_MAX_AGE},
+};
 
 #[derive(Template)]
 #[template(path = "login.html")]
@@ -37,8 +40,10 @@ pub async fn post_login(
         response.headers_mut().append(
             header::SET_COOKIE,
             HeaderValue::from_str(&format!(
-                "auth_token={}; Max-Age=2628000; Path=/; HttpOnly",
-                form.token
+                "{auth}={token}; Max-Age={age}; Path=/; HttpOnly",
+                auth = COOKIE_AUTH_NAME,
+                token = form.token,
+                age = COOKIE_MAX_AGE
             ))
             .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?,
         );
