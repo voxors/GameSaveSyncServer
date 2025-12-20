@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+    <head>
+        {% include "common_head.html" %}
+        <title>Dashboard</title>
+    </head>
+    <body>
+        {% include "navbar.html" %}
+        <div class="bg-brand-background dark:bg-brand-background-dark min-h-screen flex items-center justify-center">
+            {% for save in saves %}
+            <div>
+                <h2>{{ save.game_title }}</h2>
+                <p>{{ save.date }}</p>
+                <ul>
+                    {% for path in save.paths %}
+                    <li>{{ path }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endfor %}
+    </body>
+</html>

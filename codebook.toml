@@ -1,7 +1,9 @@
 words = [
+    "askama",
+    "clippy",
+    "endfor",
+    "endmacro",
     "ludusavi",
     "rustls",
     "serde",
-    "clippy",
-    "askama",
 ]

@@ -1,3 +1,7 @@
+use crate::{
+    DATABASE,
+    const_var::{COOKIE_AUTH_NAME, COOKIE_MAX_AGE},
+};
 use askama::Template;
 use axum::{
     Json,
@@ -6,25 +10,22 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::{
-    DATABASE,
-    const_var::{COOKIE_AUTH_NAME, COOKIE_MAX_AGE},
-};
-
 #[derive(Template)]
 #[template(path = "login.html")]
-pub struct LoginTemplate {}
+pub struct LoginTemplate<'a> {
+    title: &'a str,
+}
 
 #[derive(Deserialize)]
 pub struct LoginForm {
     token: String,
 }
 
-pub async fn get_login() -> impl IntoResponse {
-    let html = LoginTemplate {}
-        .render()
-        .unwrap_or_else(|_| "Template rendering error".into());
-    Html(html)
+pub async fn get_login() -> Result<impl IntoResponse, (StatusCode, String)> {
+    match (LoginTemplate { title: "Login" }.render()) {
+        Ok(html) => Ok(Html(html)),
+        Err(err) => Err((StatusCode::INTERNAL_SERVER_ERROR, err.to_string())),
+    }
 }
 
 pub async fn post_login(
