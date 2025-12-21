@@ -1,1 +1,18 @@
 @import "tailwindcss";
+
+@theme {
+    --color-brand-background: #e8e8e8;
+    --color-brand-background-dark: #2e2e2e;
+    --color-brand: #ea4732;
+    --color-brand-dark: #d73a2b;
+}
+
+.btn-brand {
+    background-color: var(--color-brand);
+    color: white;
+    transition: background-color 0.2s ease;
+    text-shadow: var(--text-shadow-lg);
+}
+.btn-brand:hover {
+    background-color: var(--color-brand-dark);
+}

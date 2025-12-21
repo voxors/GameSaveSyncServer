@@ -1,6 +1,6 @@
 use crate::DATABASE;
 use crate::const_var::ROOT_API_PATH;
-use crate::datatype_endpoint::{GameMetadata, GameMetadataCreate};
+use crate::datatype_endpoint::{GameMetadata, GameMetadataCreate, GameMetadataWithPaths};
 use axum::{Json, extract::Path, http::StatusCode};
 use const_format::concatcp;
 
@@ -33,6 +33,25 @@ pub async fn post_game_metadata(Json(payload): Json<GameMetadataCreate>) -> Stat
 )]
 pub async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode> {
     match DATABASE.get_games_metadata() {
+        Ok(data) => Ok(Json(data)),
+        Err(e) => {
+            eprintln!("Error retrieving game metadata: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = concatcp!(ROOT_API_PATH, "/games/paths/saves"),
+    params(),
+    responses(
+        (status = 200, description = "get all games metadata that has paths with saves", body = [GameMetadataWithPaths])
+    )
+)]
+pub async fn get_games_metadata_with_paths_if_saves_exists()
+-> Result<Json<Vec<GameMetadataWithPaths>>, StatusCode> {
+    match DATABASE.get_games_metadata_and_paths_if_saves_exist() {
         Ok(data) => Ok(Json(data)),
         Err(e) => {
             eprintln!("Error retrieving game metadata: {}", e);

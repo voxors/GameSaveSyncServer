@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::database::datatype::{
     DbApiTokens, DbDbInfo, DbFileHash, DbGameExecutable, DbGameMetadata, DbGameName, DbGamePath,
     DbGameSave,
@@ -8,8 +10,8 @@ use crate::database::schema::{
     game_save,
 };
 use crate::datatype_endpoint::{
-    Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate, OS, SavePath,
-    SavePathCreate, SaveReference,
+    Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate,
+    GameMetadataWithPaths, OS, SavePath, SavePathCreate, SaveReference,
 };
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -281,6 +283,61 @@ impl GameDatabase {
                     steam_appid: db_game_metadata.steam_appid,
                     default_name: db_game_metadata.default_name,
                 },
+            });
+        }
+
+        Ok(games)
+    }
+
+    pub fn get_games_metadata_and_paths_if_saves_exist(
+        &self,
+    ) -> Result<Vec<GameMetadataWithPaths>, Box<dyn std::error::Error>> {
+        let connection = &mut self.pool.get()?;
+        let db_games: Vec<(DbGameMetadata, DbGamePath)> = game_metadata::table
+            .inner_join(
+                game_path::table.on(game_path::game_metadata_id.nullable().eq(game_metadata::id)),
+            )
+            .inner_join(game_save::table.on(game_save::path_id.nullable().eq(game_path::id)))
+            .select((DbGameMetadata::as_select(), DbGamePath::as_select()))
+            .distinct()
+            .load(connection)?;
+
+        let mut games_map: HashMap<i32, (DbGameMetadata, Vec<DbGamePath>)> = HashMap::new();
+        for (metadata, path) in db_games {
+            let id = metadata.id.unwrap();
+            games_map
+                .entry(id)
+                .or_insert_with(|| (metadata.clone(), Vec::new()))
+                .1
+                .push(path);
+        }
+
+        let mut games = Vec::with_capacity(games_map.len());
+        for (game_id, (db_game_metadata, db_paths)) in games_map {
+            let known_name: Vec<String> = game_alt_name::table
+                .filter(game_alt_name::game_metadata_id.eq(game_id))
+                .select(game_alt_name::name)
+                .load(connection)?;
+
+            games.push(GameMetadataWithPaths {
+                game_metadata: GameMetadata {
+                    id: db_game_metadata.id,
+                    metadata: GameMetadataCreate {
+                        known_name,
+                        steam_appid: db_game_metadata.steam_appid,
+                        default_name: db_game_metadata.default_name,
+                    },
+                },
+                paths: db_paths
+                    .iter()
+                    .map(|db_path| SavePath {
+                        id: db_path.id,
+                        path: SavePathCreate {
+                            path: db_path.path.to_owned(),
+                            operating_system: db_path.operating_system,
+                        },
+                    })
+                    .collect(),
             });
         }
 

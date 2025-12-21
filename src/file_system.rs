@@ -1,9 +1,7 @@
+use crate::const_var::{DATA_DIR, TMP_DIR};
 use std::path::Path;
-
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
-
-use crate::const_var::{DATA_DIR, TMP_DIR};
 
 pub async fn write_bytes_to_data_file(
     tmp_path: impl AsRef<Path>,

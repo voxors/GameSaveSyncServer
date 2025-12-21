@@ -6,7 +6,7 @@ use crate::datatype_endpoint::OS;
 use diesel::prelude::{Associations, Identifiable};
 use diesel::{Insertable, Queryable, Selectable};
 
-#[derive(Identifiable, Insertable, Selectable, Queryable, PartialEq, Debug)]
+#[derive(Identifiable, Insertable, Clone, Selectable, Queryable, PartialEq, Debug)]
 #[diesel(table_name = game_metadata)]
 pub struct DbGameMetadata {
     pub id: Option<i32>,
