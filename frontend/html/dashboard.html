@@ -6,18 +6,19 @@
     </head>
     <body>
         {% include "navbar.html" %}
-        <div class="bg-brand-background dark:bg-brand-background-dark min-h-screen flex items-center justify-center">
+        <div class="bg-brand-background dark:bg-brand-background-dark min-h-screen flex">
             {% for save in saves %}
             <div>
-                <h2>{{ save.game_title }}</h2>
+                <p>{{ save.game_title }}<p>
                 <p>{{ save.date }}</p>
+                <p>{{ save.base_path }}</p>
                 <ul>
                     {% for path in save.paths %}
                     <li>{{ path }}</li>
                     {% endfor %}
                 </ul>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </body>
 </html>
