@@ -73,31 +73,31 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct SavePathCreate {
     pub path: String,
     pub operating_system: OS,
 }
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct SavePath {
     pub id: Option<i32>,
     #[serde(flatten)]
     pub path: SavePathCreate,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct ExecutableCreate {
     pub executable: String,
     pub operating_system: OS,
 }
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct Executable {
     pub id: Option<i32>,
     #[serde(flatten)]
     pub executable: ExecutableCreate,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct GameMetadataCreate {
     pub known_name: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -105,23 +105,29 @@ pub struct GameMetadataCreate {
     pub steam_appid: Option<String>,
     pub default_name: String,
 }
-#[derive(Serialize, Deserialize, ToSchema, IntoParams)]
+#[derive(Serialize, Deserialize, ToSchema, IntoParams, Clone)]
 pub struct GameMetadata {
     pub id: Option<i32>,
     #[serde(flatten)]
     pub metadata: GameMetadataCreate,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct FileHash {
     pub relative_path: String,
     pub hash: String,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct SaveReference {
     pub uuid: String,
     pub path_id: i32,
     pub time: i64,
     pub files_hash: Vec<FileHash>,
+}
+
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
+pub struct GameMetadataWithPaths {
+    pub game_metadata: GameMetadata,
+    pub paths: Vec<SavePath>,
 }

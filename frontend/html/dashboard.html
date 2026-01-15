@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+    <head>
+        {% include "common_head.html" %}
+        <title>Dashboard</title>
+    </head>
+    <body>
+        {% include "navbar.html" %}
+        <div class="bg-brand-background dark:bg-brand-background-dark min-h-screen flex flex-wrap justify-center gap-4 p-6 items-start">
+            {% for save in saves %}
+            <div class="bg-white dark:bg-stone-800 rounded-lg shadow p-4 m-2 w-96 self-start">
+                <h3 class="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-200">{{ save.game_title }}</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1 truncate">{{ save.date }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-2 truncate" title="{{ save.base_path }}">{{ save.base_path }}</p>
+                <details class="mt-2">
+                    <summary class="cursor-pointer font-medium text-gray-800 dark:text-gray-200">
+                        Files
+                    </summary>
+                    <ul class="pl-4 mt-2 space-y-1">
+                        {% for path in save.paths %}
+                        <li class="text-sm text-gray-700 dark:text-gray-300 truncate" title="{{ path }}">{{ path }}</li>
+                        {% endfor %}
+                    </ul>
+                </details>
+            </div>
+            {% endfor %}
+        </div>
+    </body>
+</html>

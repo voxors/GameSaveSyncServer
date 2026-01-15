@@ -28,12 +28,15 @@ use crate::route_dbinfo::get_db_uuid;
 use crate::route_executable::{
     get_game_executables, get_game_executables_by_os, post_game_executable,
 };
-use crate::route_games::{get_game_metadata, get_games_metadata, post_game_metadata};
+use crate::route_games::{
+    get_game_metadata, get_games_metadata, get_games_metadata_with_paths_if_saves_exists,
+    post_game_metadata,
+};
 use crate::route_paths::{get_game_paths, get_game_paths_by_os, post_game_path};
 use crate::route_saves::{
     get_game_save_by_uuid, get_game_saves_reference_by_path_id, post_game_save_by_path_id,
 };
-use crate::route_web_dashboard::index_handler;
+use crate::route_web_dashboard::dashboard_handler;
 use crate::route_web_login::{get_login, post_login};
 use crate::route_yaml_import::post_ludusavi_yaml;
 use axum::extract::DefaultBodyLimit;
@@ -72,6 +75,10 @@ async fn main() {
 
     let api_router = Router::new()
         .route("/games", get(get_games_metadata).post(post_game_metadata))
+        .route(
+            "/games/paths/saves",
+            get(get_games_metadata_with_paths_if_saves_exists),
+        )
         .route("/games/{Id}", get(get_game_metadata))
         .route(
             "/games/{Id}/paths",
@@ -105,7 +112,7 @@ async fn main() {
     let swagger_router =
         SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi());
 
-    let protected_router = Router::new().route("/", get(index_handler));
+    let protected_router = Router::new().route("/", get(dashboard_handler));
     let login_router = Router::new().route(LOGIN_PATH, get(get_login).post(post_login));
     let web_router = Router::new()
         .merge(login_router)

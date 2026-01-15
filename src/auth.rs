@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use crate::{
     DATABASE,
     const_var::{COOKIE_AUTH_NAME, LOGIN_PATH},
@@ -9,6 +7,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Redirect},
 };
+use std::error::Error;
 
 #[allow(clippy::result_large_err)]
 pub fn bearer_token_auth(
