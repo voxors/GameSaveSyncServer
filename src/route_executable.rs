@@ -20,7 +20,7 @@ pub async fn get_game_executables(
     match DATABASE.get_executable_by_game_id(id) {
         Ok(data) => Ok(Json(data)),
         Err(e) => {
-            eprintln!("Error getting game paths: {}", e);
+            tracing::error!("Error getting game paths: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
@@ -45,7 +45,7 @@ pub async fn get_game_executables_by_os(
     match DATABASE.get_executable_by_game_id_and_os(id, os) {
         Ok(data) => Ok(Json(data)),
         Err(e) => {
-            eprintln!("Error getting game paths: {}", e);
+            tracing::error!("Error getting game paths: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
@@ -69,7 +69,7 @@ pub async fn post_game_executable(
     match DATABASE.add_game_executable(id, &payload) {
         Ok(()) => StatusCode::CREATED,
         Err(e) => {
-            eprintln!("Error adding game path: {}", e);
+            tracing::error!("Error adding game path: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         }
     }

@@ -41,7 +41,7 @@ pub async fn post_ludusavi_yaml(mut multipart: Multipart) -> StatusCode {
     // Whatever happened, clean up
     let _ = fs::remove_file(&tmp_path).await;
     if let Some(e) = err {
-        eprintln!("Error importing ludusavi manifest: {}", e);
+        tracing::error!("Error importing ludusavi manifest: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     } else {
         StatusCode::OK

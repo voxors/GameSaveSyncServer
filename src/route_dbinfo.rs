@@ -17,7 +17,7 @@ pub async fn get_db_uuid() -> Result<String, StatusCode> {
             None => Err(StatusCode::NOT_FOUND),
         },
         Err(e) => {
-            eprintln!("Error getting game paths: {}", e);
+            tracing::error!("Error getting game paths: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
