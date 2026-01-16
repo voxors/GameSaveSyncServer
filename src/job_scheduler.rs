@@ -8,8 +8,9 @@ use std::{
     },
     time::Duration,
 };
-use tokio::{sync::Mutex, task::JoinHandle};
+use tokio::{sync::Mutex, task::JoinHandle, time::Instant};
 use tokio_util::sync::CancellationToken;
+use tracing::Instrument;
 
 #[async_trait]
 pub trait Job: Send + Sync + Debug {
@@ -75,11 +76,18 @@ async fn scheduler_loop(jobs: Arc<Mutex<Vec<JobEntry>>>, task_cancel: Cancellati
 
 async fn run_job(job: Arc<Mutex<dyn Job>>, token: CancellationToken, is_running: Arc<AtomicBool>) {
     let mut job = job.lock().await;
-    tracing::info!("Running job: {}", job.name());
-    if let Err(err) = job.execute(token.clone()).await {
-        tracing::error!("Error while executing job: {}, err: {}", job.name(), err);
+    let span = tracing::info_span!("job_execution", name = %job.name());
+    async move {
+        let start = Instant::now();
+        tracing::info!("Starting job");
+        if let Err(err) = job.execute(token.clone()).await {
+            tracing::error!("Error while executing job: {}, err: {}", job.name(), err);
+        }
+        is_running.store(false, Ordering::Relaxed);
+        tracing::info!("Finishing job, Elapsed={} ms", start.elapsed().as_millis())
     }
-    is_running.store(false, Ordering::Relaxed);
+    .instrument(span)
+    .await
 }
 
 impl JobScheduler {

@@ -24,7 +24,7 @@ pub fn bearer_token_auth(
             {
                 Ok(response) => response,
                 Err(error) => {
-                    eprintln!("Response builder error: {error}");
+                    tracing::error!("Response builder error: {error}");
                     axum::http::Response::new(Body::empty())
                 }
             },

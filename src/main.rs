@@ -41,7 +41,6 @@ use crate::route_web_login::{get_login, post_login};
 use crate::route_yaml_import::post_ludusavi_yaml;
 use axum::extract::DefaultBodyLimit;
 use axum::{Router, routing::get, routing::post};
-use chrono::Duration;
 use const_format::concatcp;
 use once_cell::sync::Lazy;
 use tower_http::{
@@ -64,12 +63,26 @@ async fn main() {
         )
         .init();
 
+    std::panic::set_hook(Box::new(|panic_info| {
+        let location = panic_info
+            .location()
+            .unwrap_or_else(|| std::panic::Location::caller());
+
+        tracing::error!(
+            message = "A thread panicked",
+            payload = panic_info.payload_as_str().unwrap_or("not a string"),
+            file = location.file(),
+            line = location.line(),
+            column = location.column(),
+        )
+    }));
+
     create_fs_structure().await.unwrap();
     Lazy::force(&DATABASE);
 
     let mut job_scheduler = JobScheduler::new();
     job_scheduler
-        .add_job(LudusaviJob::default(), Duration::hours(1))
+        .add_job(LudusaviJob::default(), chrono::Duration::hours(1))
         .await;
     job_scheduler.start_scheduler();
 

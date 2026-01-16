@@ -17,7 +17,7 @@ pub async fn post_game_metadata(Json(payload): Json<GameMetadataCreate>) -> Stat
     match DATABASE.add_games_metadata(vec![&payload]) {
         Ok(()) => StatusCode::CREATED,
         Err(e) => {
-            eprintln!("Error adding game metadata: {e}");
+            tracing::error!("Error adding game metadata: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         }
     }
@@ -35,7 +35,7 @@ pub async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode>
     match DATABASE.get_games_metadata() {
         Ok(data) => Ok(Json(data)),
         Err(e) => {
-            eprintln!("Error retrieving game metadata: {}", e);
+            tracing::error!("Error retrieving game metadata: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
@@ -54,7 +54,7 @@ pub async fn get_games_metadata_with_paths_if_saves_exists()
     match DATABASE.get_games_metadata_and_paths_if_saves_exist() {
         Ok(data) => Ok(Json(data)),
         Err(e) => {
-            eprintln!("Error retrieving game metadata: {}", e);
+            tracing::error!("Error retrieving game metadata: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
@@ -76,7 +76,7 @@ pub async fn get_game_metadata(Path(id): Path<i32>) -> Result<Json<GameMetadata>
         Ok(Some(data)) => Ok(Json(data)),
         Ok(None) => Err(StatusCode::NOT_FOUND),
         Err(e) => {
-            eprintln!("Error getting game metadata: {}", e);
+            tracing::error!("Error getting game metadata: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }

@@ -30,7 +30,7 @@ pub async fn get_game_saves_reference_by_path_id(
         Ok(Some(data)) => Ok(Json(data)),
         Ok(None) => Ok(Json(Vec::new())),
         Err(e) => {
-            eprintln!("Error getting game saves reference: {}", e);
+            tracing::error!("Error getting game saves reference: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
@@ -96,7 +96,7 @@ pub async fn post_game_save_by_path_id(
     .await;
 
     if let Err(e) = result {
-        eprintln!("Error uploading game save: {}", e);
+        tracing::error!("Error uploading game save: {}", e);
         //Try to clean up
         let _ = fs::remove_file(&tmp_path);
         let _ = fs::remove_file(&save_path);
