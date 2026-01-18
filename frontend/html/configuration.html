@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+    <head>
+        {% include "common_head.html" %}
+        <script defer="true" src="/assets/js/configuration.js"></script>
+    </head>
+    <body>
+        {% include "navbar.html" %}
+        <div class="bg-brand-background dark:bg-brand-background-dark min-h-screen">
+            <div class="flex flex-wrap justify-center gap-4 p-6 items-start">
+                {% for category in categories %}
+                <div class="bg-white dark:bg-stone-800 rounded-lg shadow p-4 m-2 w-3/4 self-start text-gray-800 dark:text-gray-200"">
+                    <h2 class="text-xl font-semibold mb-4">{{ category.title }}</h2>
+
+                    {% for setting in category.settings %}
+                    <div class="bg-stone-200 dark:bg-stone-700 rounded-lg p-4 m-4 flex-1">
+                        <label for="{{ setting.name }}" class="block font-medium mb-2">
+                            {{ setting.label }}
+                        </label>
+
+                        <input
+                            id="{{ setting.id }}"
+                            name="{{ setting.name }}"
+                            type="{{ setting.input_type }}"
+                            value="{{ setting.value }}"
+                            {% if setting.required %}required{% endif %}
+                            {% if setting.pattern.is_some() %}pattern="{{ setting.pattern.as_deref().unwrap() }}"{% endif %}
+                            {% if setting.min.is_some() %}min="{{ setting.min.as_deref().unwrap() }}"{% endif %}
+                            {% if setting.max.is_some() %}max="{{ setting.max.as_deref().unwrap() }}"{% endif %}
+                            {% if setting.step.is_some() %}step="{{ setting.step.as_deref().unwrap() }}"{% endif %}
+                            {% if setting.placeholder.is_some() %}placeholder="{{ setting.placeholder.as_deref().unwrap() }}"{% endif %}
+                            class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                        >
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="w-3/4 m-2 p-6 py-0.5 mx-auto text-right">
+                <button id="apply-config" class="btn-brand px-6 py-2 text-center rounded-md hover:bg-brand-dark right-1/12">
+                    Apply
+                </button>
+            </div>
+        </div>
+    </body>
+</html>

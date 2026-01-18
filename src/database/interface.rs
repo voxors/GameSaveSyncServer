@@ -1,13 +1,13 @@
 use std::collections::HashMap;
+use std::error::Error;
 
 use crate::database::datatype::{
-    DbApiTokens, DbDbInfo, DbFileHash, DbGameExecutable, DbGameMetadata, DbGameName, DbGamePath,
-    DbGameSave,
+    DbApiTokens, DbConfiguration, DbDbInfo, DbFileHash, DbGameExecutable, DbGameMetadata,
+    DbGameName, DbGamePath, DbGameSave,
 };
-
 use crate::database::schema::{
-    api_tokens, db_info, file_hash, game_alt_name, game_executable, game_metadata, game_path,
-    game_save,
+    api_tokens, configurations, db_info, file_hash, game_alt_name, game_executable, game_metadata,
+    game_path, game_save,
 };
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate,
@@ -33,8 +33,9 @@ impl GameDatabase {
             .build(manager)
             .expect("Failed to create pool");
 
-        let mut conn = pool.get().expect("Failed to get DB connection");
-        conn.run_pending_migrations(MIGRATIONS)
+        pool.get()
+            .expect("Failed to get DB connection")
+            .run_pending_migrations(MIGRATIONS)
             .expect("Failed to run database migrations");
 
         let db = Self { pool };
@@ -72,7 +73,7 @@ impl GameDatabase {
             Vec<ExecutableCreate>,
             Vec<SavePathCreate>,
         )>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|conn| {
@@ -149,7 +150,7 @@ impl GameDatabase {
     pub fn add_games_metadata(
         &self,
         games_metadata: Vec<&GameMetadataCreate>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
@@ -198,7 +199,7 @@ impl GameDatabase {
     pub fn get_game_metadata_by_name(
         &self,
         target_name: &str,
-    ) -> Result<Vec<GameMetadata>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Vec<GameMetadata>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let db_games: Vec<DbGameMetadata> = game_metadata::table
             .filter(game_metadata::default_name.eq(target_name))
@@ -227,7 +228,7 @@ impl GameDatabase {
     pub fn get_game_metadata_by_id(
         &self,
         target_id: &i32,
-    ) -> Result<Option<GameMetadata>, Box<dyn std::error::Error>> {
+    ) -> Result<Option<GameMetadata>, Box<dyn Error>> {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
@@ -263,7 +264,7 @@ impl GameDatabase {
         })
     }
 
-    pub fn get_games_metadata(&self) -> Result<Vec<GameMetadata>, Box<dyn std::error::Error>> {
+    pub fn get_games_metadata(&self) -> Result<Vec<GameMetadata>, Box<dyn Error>> {
         let connection = &mut self.pool.get()?;
         let db_games: Vec<DbGameMetadata> = game_metadata::table
             .select(DbGameMetadata::as_select())
@@ -291,7 +292,7 @@ impl GameDatabase {
 
     pub fn get_games_metadata_and_paths_if_saves_exist(
         &self,
-    ) -> Result<Vec<GameMetadataWithPaths>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<GameMetadataWithPaths>, Box<dyn Error>> {
         let connection = &mut self.pool.get()?;
         let db_games: Vec<(DbGameMetadata, DbGamePath)> = game_metadata::table
             .inner_join(
@@ -348,7 +349,7 @@ impl GameDatabase {
         &self,
         game_id: i32,
         path: &SavePathCreate,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         diesel::insert_into(game_path::table)
@@ -365,7 +366,7 @@ impl GameDatabase {
         &self,
         game_id: i32,
         os: OS,
-    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let paths: Vec<String> = game_path::table
             .filter(game_path::game_metadata_id.eq(game_id))
@@ -375,10 +376,7 @@ impl GameDatabase {
         Ok(paths)
     }
 
-    pub fn get_paths_by_game_id(
-        &self,
-        game_id: i32,
-    ) -> Result<Vec<SavePath>, Box<dyn std::error::Error>> {
+    pub fn get_paths_by_game_id(&self, game_id: i32) -> Result<Vec<SavePath>, Box<dyn Error>> {
         let connection = &mut self.pool.get()?;
         let path_rows: Vec<(Option<i32>, String, OS)> = game_path::table
             .filter(game_path::game_metadata_id.eq(game_id))
@@ -401,7 +399,7 @@ impl GameDatabase {
         &self,
         game_id: i32,
         executable: &ExecutableCreate,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         diesel::insert_into(game_executable::table)
             .values(DbGameExecutable {
@@ -417,7 +415,7 @@ impl GameDatabase {
         &self,
         game_id: i32,
         os: OS,
-    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let paths: Vec<String> = game_executable::table
             .filter(game_executable::game_metadata_id.eq(game_id))
@@ -430,7 +428,7 @@ impl GameDatabase {
     pub fn get_executable_by_game_id(
         &self,
         game_id: i32,
-    ) -> Result<Vec<Executable>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<Executable>, Box<dyn Error>> {
         let connection = &mut self.pool.get()?;
         let executable_rows: Vec<(Option<i32>, String, OS)> = game_executable::table
             .filter(game_executable::game_metadata_id.eq(game_id))
@@ -458,7 +456,7 @@ impl GameDatabase {
         uuid: Uuid,
         path_id: i32,
         files_hash: Vec<FileHash>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let now = time::OffsetDateTime::now_utc();
 
@@ -487,7 +485,7 @@ impl GameDatabase {
     pub fn get_reference_to_save_by_path_id(
         &self,
         path_id: i32,
-    ) -> Result<Option<Vec<SaveReference>>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Option<Vec<SaveReference>>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         let save_rows = game_save::table
@@ -521,9 +519,7 @@ impl GameDatabase {
         Ok(Some(save_references))
     }
 
-    pub fn get_database_uuid(
-        &self,
-    ) -> Result<Option<Uuid>, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn get_database_uuid(&self) -> Result<Option<Uuid>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let maybe_db_info: Option<DbDbInfo> = db_info::table
             .select(DbDbInfo::as_select())
@@ -536,10 +532,7 @@ impl GameDatabase {
         }
     }
 
-    pub fn add_database_uuid(
-        &self,
-        uuid: Uuid,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub fn add_database_uuid(&self, uuid: Uuid) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         diesel::insert_into(db_info::table)
             .values(DbDbInfo {
@@ -551,7 +544,7 @@ impl GameDatabase {
         Ok(())
     }
 
-    pub fn get_api_tokens(&self) -> Result<Vec<Uuid>, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn get_api_tokens(&self) -> Result<Vec<Uuid>, Box<dyn Error + Send + Sync>> {
         let mut api_tokens = Vec::<Uuid>::new();
 
         let connection = &mut self.pool.get()?;
@@ -570,10 +563,7 @@ impl GameDatabase {
         Ok(api_tokens)
     }
 
-    pub fn add_api_tokens(
-        &self,
-        uuids: Vec<Uuid>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub fn add_api_tokens(&self, uuids: Vec<Uuid>) -> Result<(), Box<dyn Error + Send + Sync>> {
         let db_api_tokens: Vec<DbApiTokens> = uuids
             .iter()
             .map(|uuid| DbApiTokens {
@@ -590,14 +580,38 @@ impl GameDatabase {
         Ok(())
     }
 
-    pub fn remove_api_tokens(
-        &self,
-        uuids: Vec<Uuid>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub fn remove_api_tokens(&self, uuids: Vec<Uuid>) -> Result<(), Box<dyn Error + Send + Sync>> {
         let db_api_tokens: Vec<String> = uuids.iter().map(|uuid| uuid.to_string()).collect();
 
         let connection = &mut self.pool.get()?;
         diesel::delete(api_tokens::table.filter(api_tokens::api_token.eq_any(&db_api_tokens)))
+            .execute(connection)?;
+
+        Ok(())
+    }
+
+    pub fn get_configuration_value(
+        &self,
+        id: &str,
+    ) -> Result<Option<DbConfiguration>, Box<dyn Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+        let maybe_configurations = configurations::table
+            .filter(configurations::columns::id.eq(id))
+            .select(DbConfiguration::as_select())
+            .first::<DbConfiguration>(connection)
+            .optional()?;
+
+        Ok(maybe_configurations)
+    }
+
+    pub fn update_configuration_value(
+        &self,
+        id: &str,
+        value: &str,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+        diesel::update(configurations::table.filter(configurations::columns::id.eq(id)))
+            .set(configurations::columns::value.eq(value))
             .execute(connection)?;
 
         Ok(())

@@ -10,7 +10,7 @@ use const_format::concatcp;
     params(),
     request_body = GameMetadataCreate,
     responses(
-        (status = 201, description = "game metadata created")
+        (status = StatusCode::CREATED, description = "game metadata created")
     )
 )]
 pub async fn post_game_metadata(Json(payload): Json<GameMetadataCreate>) -> StatusCode {
@@ -28,7 +28,7 @@ pub async fn post_game_metadata(Json(payload): Json<GameMetadataCreate>) -> Stat
     path = concatcp!(ROOT_API_PATH, "/games"),
     params(),
     responses(
-        (status = 200, description = "get all games metadata", body = [GameMetadata])
+        (status = StatusCode::OK, description = "get all games metadata", body = [GameMetadata])
     )
 )]
 pub async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode> {
@@ -46,7 +46,7 @@ pub async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode>
     path = concatcp!(ROOT_API_PATH, "/games/paths/saves"),
     params(),
     responses(
-        (status = 200, description = "get all games metadata that has paths with saves", body = [GameMetadataWithPaths])
+        (status = StatusCode::OK, description = "get all games metadata that has paths with saves", body = [GameMetadataWithPaths])
     )
 )]
 pub async fn get_games_metadata_with_paths_if_saves_exists()
@@ -67,8 +67,8 @@ pub async fn get_games_metadata_with_paths_if_saves_exists()
         ("Id" = String, Path, description = "Id of the game")
     ),
     responses(
-        (status = 200, description = "game metadata returned, body = [GameMetadata]"),
-        (status = 404, description = "game not found")
+        (status = StatusCode::OK, description = "game metadata returned, body = [GameMetadata]"),
+        (status = StatusCode::NOT_FOUND, description = "game not found")
     )
 )]
 pub async fn get_game_metadata(Path(id): Path<i32>) -> Result<Json<GameMetadata>, StatusCode> {
