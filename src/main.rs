@@ -1,4 +1,5 @@
 mod auth;
+mod configuration;
 mod const_var;
 mod database;
 mod datatype_endpoint;
@@ -8,22 +9,25 @@ mod job_scheduler;
 mod ludusavi;
 mod ludusavi_datatype;
 mod openapi;
+mod route_configuration;
 mod route_dbinfo;
 mod route_executable;
 mod route_games;
 mod route_paths;
 mod route_saves;
+mod route_web_configuration;
 mod route_web_dashboard;
 mod route_web_login;
 mod route_yaml_import;
 
-use crate::auth::{bearer_token_auth, cookie_token_auth};
+use crate::auth::{bearer_cookie_auth_no_redirect, bearer_cookie_auth_redirect};
 use crate::const_var::{DATA_DIR, LOGIN_PATH, MAX_BODY_SIZE, ROOT_API_PATH};
 use crate::database::interface::GameDatabase;
 use crate::file_system::create_fs_structure;
 use crate::job_ludusavi::LudusaviJob;
 use crate::job_scheduler::JobScheduler;
 use crate::openapi::ApiDoc;
+use crate::route_configuration::{get_configuration, put_configuration};
 use crate::route_dbinfo::get_db_uuid;
 use crate::route_executable::{
     get_game_executables, get_game_executables_by_os, post_game_executable,
@@ -36,6 +40,7 @@ use crate::route_paths::{get_game_paths, get_game_paths_by_os, post_game_path};
 use crate::route_saves::{
     get_game_save_by_uuid, get_game_saves_reference_by_path_id, post_game_save_by_path_id,
 };
+use crate::route_web_configuration::configuration_handler;
 use crate::route_web_dashboard::dashboard_handler;
 use crate::route_web_login::{get_login, post_login};
 use crate::route_yaml_import::post_ludusavi_yaml;
@@ -120,16 +125,26 @@ async fn main() {
             post(post_ludusavi_yaml).route_layer(DefaultBodyLimit::max(MAX_BODY_SIZE)),
         )
         .route("/uuid", get(get_db_uuid))
-        .layer(ValidateRequestHeaderLayer::custom(bearer_token_auth));
+        .route(
+            "/configuration/{configuration}",
+            get(get_configuration).put(put_configuration),
+        )
+        .layer(ValidateRequestHeaderLayer::custom(
+            bearer_cookie_auth_no_redirect,
+        ));
 
     let swagger_router =
         SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi());
 
-    let protected_router = Router::new().route("/", get(dashboard_handler));
+    let protected_router = Router::new()
+        .route("/", get(dashboard_handler))
+        .route("/configuration", get(configuration_handler));
     let login_router = Router::new().route(LOGIN_PATH, get(get_login).post(post_login));
     let web_router = Router::new()
         .merge(login_router)
-        .merge(protected_router.layer(ValidateRequestHeaderLayer::custom(cookie_token_auth)));
+        .merge(protected_router.layer(ValidateRequestHeaderLayer::custom(
+            bearer_cookie_auth_redirect,
+        )));
 
     let app = Router::new()
         .nest(ROOT_API_PATH, api_router)

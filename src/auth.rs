@@ -10,31 +10,39 @@ use axum::{
 use std::error::Error;
 
 #[allow(clippy::result_large_err)]
-pub fn bearer_token_auth(
+pub fn bearer_cookie_auth_redirect(
     request_body: &mut axum::http::Request<Body>,
 ) -> Result<(), axum::http::Response<Body>> {
+    bearer_cookie_auth(request_body, true)
+}
+
+#[allow(clippy::result_large_err)]
+pub fn bearer_cookie_auth_no_redirect(
+    request_body: &mut axum::http::Request<Body>,
+) -> Result<(), axum::http::Response<Body>> {
+    bearer_cookie_auth(request_body, false)
+}
+
+#[allow(clippy::result_large_err)]
+fn bearer_cookie_auth(
+    request_body: &mut axum::http::Request<Body>,
+    redirect: bool,
+) -> Result<(), axum::http::Response<Body>> {
     let api_tokens = DATABASE.get_api_tokens();
-    if authorized_bearer_token(request_body, api_tokens) {
+    if authorized_bearer_token(request_body, &api_tokens)
+        || authorized_cookie(request_body, &api_tokens)
+    {
         Ok(())
+    } else if redirect {
+        Err(Redirect::to(LOGIN_PATH).into_response())
     } else {
-        Err(
-            match axum::http::Response::builder()
-                .status(StatusCode::UNAUTHORIZED)
-                .body(Body::empty())
-            {
-                Ok(response) => response,
-                Err(error) => {
-                    tracing::error!("Response builder error: {error}");
-                    axum::http::Response::new(Body::empty())
-                }
-            },
-        )
+        Err(StatusCode::UNAUTHORIZED.into_response())
     }
 }
 
 fn authorized_bearer_token(
     request_body: &mut axum::http::Request<Body>,
-    api_tokens: Result<Vec<uuid::Uuid>, Box<dyn Error + Send + Sync>>,
+    api_tokens: &Result<Vec<uuid::Uuid>, Box<dyn Error + Send + Sync>>,
 ) -> bool {
     request_body
         .headers()
@@ -57,21 +65,9 @@ fn authorized_bearer_token(
         })
 }
 
-#[allow(clippy::result_large_err)]
-pub fn cookie_token_auth(
-    request_body: &mut axum::http::Request<Body>,
-) -> Result<(), axum::http::Response<Body>> {
-    let api_tokens = DATABASE.get_api_tokens();
-    if authorized_cookie(request_body, api_tokens) {
-        Ok(())
-    } else {
-        Err(Redirect::to(LOGIN_PATH).into_response())
-    }
-}
-
 fn authorized_cookie(
     request_body: &mut axum::http::Request<Body>,
-    api_tokens: Result<Vec<uuid::Uuid>, Box<dyn Error + Send + Sync>>,
+    api_tokens: &Result<Vec<uuid::Uuid>, Box<dyn Error + Send + Sync>>,
 ) -> bool {
     request_body
         .headers()

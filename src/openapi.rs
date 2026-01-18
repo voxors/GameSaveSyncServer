@@ -2,6 +2,7 @@ use crate::datatype_endpoint::{
     Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate, OS, SavePath,
     SavePathCreate, SaveReference, UploadedFileYaml, UploadedSave,
 };
+use crate::route_configuration::{__path_get_configuration, __path_put_configuration};
 use crate::route_dbinfo::__path_get_db_uuid;
 use crate::route_executable::{
     __path_get_game_executables, __path_get_game_executables_by_os, __path_post_game_executable,
@@ -24,6 +25,7 @@ use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
 #[derive(OpenApi)]
 #[openapi(
     paths(
+        get_configuration,
         get_db_uuid,
         get_game_executables,
         get_game_executables_by_os,
@@ -39,6 +41,7 @@ use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
         post_game_path,
         post_game_save_by_path_id,
         post_ludusavi_yaml,
+        put_configuration,
     ),
     components(schemas(
         FileHash,

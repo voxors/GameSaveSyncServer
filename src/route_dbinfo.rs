@@ -7,7 +7,7 @@ use const_format::concatcp;
     get,
     path = concatcp!(ROOT_API_PATH, "/uuid"),
     responses(
-        (status = 200, description = "db uuid", body = String),
+        (status = StatusCode::OK, description = "db uuid", body = String),
     )
 )]
 pub async fn get_db_uuid() -> Result<String, StatusCode> {

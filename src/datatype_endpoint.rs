@@ -131,3 +131,8 @@ pub struct GameMetadataWithPaths {
     pub game_metadata: GameMetadata,
     pub paths: Vec<SavePath>,
 }
+
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
+pub struct ConfigurationForm {
+    pub value: String,
+}

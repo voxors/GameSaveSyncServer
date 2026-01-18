@@ -1,4 +1,5 @@
 use crate::DATABASE;
+use crate::configuration::MAX_SAVE_PER_GAME_INFO;
 use crate::const_var::{ROOT_API_PATH, SAVE_DIR, TMP_DIR};
 use crate::datatype_endpoint::{SaveReference, UploadedSave};
 use crate::file_system::write_bytes_to_data_file;
@@ -20,7 +21,7 @@ use uuid::Uuid;
         ("Id" = String, Path, description = "Id of the path")
     ),
     responses(
-        (status = 200, description = "game saves returned", body = [SaveReference]),
+        (status = StatusCode::OK, description = "game saves returned", body = [SaveReference]),
     )
 )]
 pub async fn get_game_saves_reference_by_path_id(
@@ -48,8 +49,7 @@ pub async fn get_game_saves_reference_by_path_id(
         description = "save to upload"
     ),
     responses(
-        (status = 201, description = "game save created", body = String),
-        (status = 404, description = "path not found")
+        (status = StatusCode::CREATED, description = "game save created", body = String),
     )
 )]
 pub async fn post_game_save_by_path_id(
@@ -84,10 +84,37 @@ pub async fn post_game_save_by_path_id(
 
         if let Some(mut saves_ref) = DATABASE.get_reference_to_save_by_path_id(path_id)? {
             saves_ref.sort_by_key(|save_ref| save_ref.time);
-            while saves_ref.len() > 5 {
-                let old = saves_ref.remove(0);
-                let old_path = format!("{}/{}.sav", SAVE_DIR, old.uuid);
-                let _ = std::fs::remove_file(&old_path);
+            let maybe_max_saves = match MAX_SAVE_PER_GAME_INFO.get_value_in_db() {
+                Ok(Some(cfg)) => match cfg.value.parse::<usize>() {
+                    Ok(value) => Some(value),
+                    Err(err) => {
+                        tracing::error!(
+                            "Failed to read {} config: {}",
+                            MAX_SAVE_PER_GAME_INFO.id,
+                            err
+                        );
+                        None
+                    }
+                },
+                Ok(None) => {
+                    tracing::error!("No {} in the database", MAX_SAVE_PER_GAME_INFO.id);
+                    None
+                }
+                Err(err) => {
+                    tracing::error!(
+                        "Failed to read {} config: {}",
+                        MAX_SAVE_PER_GAME_INFO.id,
+                        err
+                    );
+                    None
+                }
+            };
+            if let Some(max_saves) = maybe_max_saves {
+                while saves_ref.len() > max_saves {
+                    let old = saves_ref.remove(0);
+                    let old_path = format!("{}/{}.sav", SAVE_DIR, old.uuid);
+                    let _ = std::fs::remove_file(&old_path);
+                }
             }
         }
 
@@ -113,8 +140,8 @@ pub async fn post_game_save_by_path_id(
         ("uuid" = String, Path, description = "UUID of the game save")
     ),
     responses(
-        (status = 200, description = "game save file returned", content_type = "application/octet-stream"),
-        (status = 404, description = "save not found")
+        (status = StatusCode::OK, description = "game save file returned", content_type = "application/octet-stream"),
+        (status = StatusCode::NOT_FOUND, description = "save not found")
     )
 )]
 pub async fn get_game_save_by_uuid(Path((uuid,)): Path<(String,)>) -> impl IntoResponse {

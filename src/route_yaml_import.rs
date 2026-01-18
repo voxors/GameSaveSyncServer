@@ -18,7 +18,7 @@ use crate::{
         description = "Ludusavi manifest"
     ),
     responses(
-        (status = 200, description = "Ludusavi manifest imported", body = String),
+        (status = StatusCode::OK, description = "Ludusavi manifest imported", body = String),
     )
 )]
 pub async fn post_ludusavi_yaml(mut multipart: Multipart) -> StatusCode {
