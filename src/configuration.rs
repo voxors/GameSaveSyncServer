@@ -6,7 +6,7 @@ use crate::{DATABASE, datatype_endpoint::ConfigurationForm};
 
 pub const MAX_SAVE_PER_GAME_INFO: ConfigurationInfo = ConfigurationInfo {
     id: "max_save_per_game",
-    name: "Number of save to keep per game",
+    name: "Number of saves to keep per game",
     max: Some(999),
     min: Some(1),
     step: Some(1),
