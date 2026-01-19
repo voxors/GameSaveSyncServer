@@ -3,8 +3,7 @@ use crate::datatype_endpoint::{
     SavePathCreate, SaveReference, UploadedFileYaml, UploadedSave,
 };
 use crate::route_configuration::{__path_get_configuration, __path_put_configuration};
-use crate::route_dbinfo::__path_get_db_uuid;
-use crate::route_executable::{
+use crate::route_executables::{
     __path_get_game_executables, __path_get_game_executables_by_os, __path_post_game_executable,
 };
 use crate::route_games::{
@@ -18,6 +17,7 @@ use crate::route_saves::{
     __path_get_game_save_by_uuid, __path_get_game_saves_reference_by_path_id,
     __path_post_game_save_by_path_id,
 };
+use crate::route_uuid::__path_get_db_uuid;
 use crate::route_yaml_import::__path_post_ludusavi_yaml;
 use utoipa::OpenApi;
 use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};

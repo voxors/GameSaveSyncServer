@@ -10,11 +10,11 @@ mod ludusavi;
 mod ludusavi_datatype;
 mod openapi;
 mod route_configuration;
-mod route_dbinfo;
-mod route_executable;
+mod route_executables;
 mod route_games;
 mod route_paths;
 mod route_saves;
+mod route_uuid;
 mod route_web_configuration;
 mod route_web_dashboard;
 mod route_web_login;
@@ -28,8 +28,7 @@ use crate::job_ludusavi::LudusaviJob;
 use crate::job_scheduler::JobScheduler;
 use crate::openapi::ApiDoc;
 use crate::route_configuration::{get_configuration, put_configuration};
-use crate::route_dbinfo::get_db_uuid;
-use crate::route_executable::{
+use crate::route_executables::{
     get_game_executables, get_game_executables_by_os, post_game_executable,
 };
 use crate::route_games::{
@@ -40,6 +39,7 @@ use crate::route_paths::{get_game_paths, get_game_paths_by_os, post_game_path};
 use crate::route_saves::{
     get_game_save_by_uuid, get_game_saves_reference_by_path_id, post_game_save_by_path_id,
 };
+use crate::route_uuid::get_db_uuid;
 use crate::route_web_configuration::configuration_handler;
 use crate::route_web_dashboard::dashboard_handler;
 use crate::route_web_login::{get_login, post_login};
