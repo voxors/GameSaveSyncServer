@@ -12,6 +12,7 @@ mod openapi;
 mod route_configuration;
 mod route_executables;
 mod route_games;
+mod route_health;
 mod route_paths;
 mod route_saves;
 mod route_uuid;
@@ -35,6 +36,7 @@ use crate::route_games::{
     get_game_metadata, get_games_metadata, get_games_metadata_with_paths_if_saves_exists,
     post_game_metadata,
 };
+use crate::route_health::get_health;
 use crate::route_paths::{get_game_paths, get_game_paths_by_os, post_game_path};
 use crate::route_saves::{
     get_game_save_by_uuid, get_game_saves_reference_by_path_id, post_game_save_by_path_id,
@@ -92,25 +94,16 @@ async fn main() {
     job_scheduler.start_scheduler();
 
     let api_router = Router::new()
+        .route(
+            "/configuration/{configuration}",
+            get(get_configuration).put(put_configuration),
+        )
         .route("/games", get(get_games_metadata).post(post_game_metadata))
         .route(
             "/games/paths/saves",
             get(get_games_metadata_with_paths_if_saves_exists),
         )
         .route("/games/{Id}", get(get_game_metadata))
-        .route(
-            "/games/{Id}/paths",
-            get(get_game_paths).post(post_game_path),
-        )
-        .route("/games/{Id}/paths/{OS}", get(get_game_paths_by_os))
-        .route(
-            "/paths/{Id}/saves",
-            get(get_game_saves_reference_by_path_id),
-        )
-        .route(
-            "/paths/{Id}/saves/upload",
-            post(post_game_save_by_path_id).route_layer(DefaultBodyLimit::max(MAX_BODY_SIZE)),
-        )
         .route(
             "/games/{Id}/executables",
             get(get_game_executables).post(post_game_executable),
@@ -119,15 +112,25 @@ async fn main() {
             "/games/{Id}/executables/{OS}",
             get(get_game_executables_by_os),
         )
+        .route(
+            "/games/{Id}/paths",
+            get(get_game_paths).post(post_game_path),
+        )
+        .route("/games/{Id}/paths/{OS}", get(get_game_paths_by_os))
+        .route("/health", get(get_health))
+        .route(
+            "/paths/{Id}/saves",
+            get(get_game_saves_reference_by_path_id),
+        )
+        .route(
+            "/paths/{Id}/saves/upload",
+            post(post_game_save_by_path_id).route_layer(DefaultBodyLimit::max(MAX_BODY_SIZE)),
+        )
         .route("/saves/{Uuid}", get(get_game_save_by_uuid))
+        .route("/uuid", get(get_db_uuid))
         .route(
             "/yaml/ludusavi",
             post(post_ludusavi_yaml).route_layer(DefaultBodyLimit::max(MAX_BODY_SIZE)),
-        )
-        .route("/uuid", get(get_db_uuid))
-        .route(
-            "/configuration/{configuration}",
-            get(get_configuration).put(put_configuration),
         )
         .layer(ValidateRequestHeaderLayer::custom(
             bearer_cookie_auth_no_redirect,

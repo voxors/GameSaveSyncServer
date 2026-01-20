@@ -10,6 +10,7 @@ use crate::route_games::{
     __path_get_game_metadata, __path_get_games_metadata,
     __path_get_games_metadata_with_paths_if_saves_exists, __path_post_game_metadata,
 };
+use crate::route_health::__path_get_health;
 use crate::route_paths::{
     __path_get_game_paths, __path_get_game_paths_by_os, __path_post_game_path,
 };
@@ -36,6 +37,7 @@ use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
         get_game_saves_reference_by_path_id,
         get_games_metadata,
         get_games_metadata_with_paths_if_saves_exists,
+        get_health,
         post_game_executable,
         post_game_metadata,
         post_game_path,
