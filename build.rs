@@ -1,10 +1,10 @@
 use std::{fs, path::Path, process::Command};
 
 fn main() {
-    println!("cargo:rerun-if-changed=frontend/css/*");
+    println!("cargo:rerun-if-changed=frontend/css");
     println!("cargo:rerun-if-changed=frontend/package.json");
+    println!("cargo:rerun-if-changed=frontend/ts");
     println!("cargo:rerun-if-changed=frontend/tsconfig.json");
-    println!("cargo:rerun-if-changed=frontend/ts/**/*.ts");
 
     let generated = Path::new("frontend/dist/generated");
     if generated.exists() && !cfg!(debug_assertions) {
