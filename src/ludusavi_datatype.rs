@@ -1,12 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Top-level schema: an object with additionalProperties being a "Game" entry.
+// Top-level schema: an object with additional Properties being a "Game" entry.
 pub type GameIndex = HashMap<String, Game>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Game {
     pub files: Option<HashMap<String, FileRule>>,
+    #[serde(rename = "installDir")]
     pub install_dir: Option<serde_yaml::Value>,
     pub launch: Option<HashMap<String, Vec<LaunchEntry>>>,
     pub registry: Option<HashMap<String, RegistryRule>>,
@@ -50,8 +51,10 @@ pub struct GogInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdInfo {
     pub flatpak: Option<String>,
+    #[serde(rename = "gogExtra")]
     pub gog_extra: Option<Vec<i64>>,
     pub lutris: Option<String>,
+    #[serde(rename = "steamExtra")]
     pub steam_extra: Option<Vec<i64>>,
 }
 

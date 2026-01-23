@@ -99,12 +99,44 @@ pub struct Executable {
 
 #[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct GameMetadataCreate {
-    pub known_name: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub known_name: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = false, nullable)]
     pub steam_appid: Option<String>,
     pub default_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub install_dir: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub gog: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub flatpak_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub lutris_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub epic_cloud: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub gog_cloud: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub origin_cloud: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub steam_cloud: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
+    pub uplay_cloud: Option<bool>,
+    pub gog_extra: Option<Vec<i64>>,
+    pub steam_extra: Option<Vec<i64>>,
 }
+
 #[derive(Serialize, Deserialize, ToSchema, IntoParams, Clone)]
 pub struct GameMetadata {
     pub id: Option<i32>,

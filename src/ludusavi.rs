@@ -1,5 +1,9 @@
 use itertools::Itertools;
-use std::path::Path;
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+    path::Path,
+};
 use tokio::{fs, io::AsyncReadExt};
 
 use crate::{
@@ -14,39 +18,87 @@ type GameFull = (
     Vec<SavePathCreate>,
 );
 
-pub async fn yaml_import(
-    yaml_path: impl AsRef<Path>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn yaml_import(yaml_path: impl AsRef<Path>) -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut file = fs::File::open(yaml_path).await?;
     let mut yaml_str = String::new();
     file.read_to_string(&mut yaml_str).await?;
     let games: GameIndex = serde_yaml::from_str(&yaml_str)?;
 
-    let db_games_metadata = DATABASE.get_games_metadata();
+    let db_games_metadata = DATABASE
+        .get_games_metadata()
+        .map_err(|err| err.to_string())?;
+
+    let mut game_name_hashmap = HashSet::new();
+    game_name_hashmap.reserve(db_games_metadata.len());
+    game_name_hashmap.extend(
+        db_games_metadata
+            .iter()
+            .map(|db_game_metadata| db_game_metadata.metadata.default_name.clone()),
+    );
+
+    let mut game_known_name_hashmap: HashMap<String, Vec<String>> = HashMap::new();
+    games
+        .iter()
+        .filter(|(_, game)| game.alias.is_some())
+        .for_each(|(name, game)| {
+            game_known_name_hashmap
+                .entry(game.alias.clone().unwrap())
+                .and_modify(|vec| vec.push(name.clone()))
+                .or_insert(vec![name.clone()]);
+        });
 
     DATABASE.add_games_full(
         games
             .iter()
-            .filter(|(name, game)| {
-                db_games_metadata.iter().flatten().all(|db_game_metadata| {
-                    *name != &db_game_metadata.metadata.default_name && game.alias.is_none()
-                })
+            .filter(|(name, game)| !game_name_hashmap.contains(*name) && game.alias.is_none())
+            .map(|(name, game)| {
+                extract_datatype_endpoint_from_game_index(
+                    name,
+                    game,
+                    game_known_name_hashmap.get(name).cloned(),
+                )
             })
-            .map(|(name, game)| extract_datatype_endpoint_from_game_index(name, game))
             .collect::<Vec<GameFull>>(),
     )?;
 
     Ok(())
 }
 
-fn extract_datatype_endpoint_from_game_index(name: &str, game: &Game) -> GameFull {
+fn extract_datatype_endpoint_from_game_index(
+    name: &str,
+    game: &Game,
+    known_name: Option<Vec<String>>,
+) -> GameFull {
     (
         GameMetadataCreate {
             default_name: name.to_string(),
-            known_name: Vec::new(),
+            known_name,
             steam_appid: game
                 .steam
                 .and_then(|steam| steam.id.map(|id| id.to_string())),
+            install_dir: game
+                .install_dir
+                .as_ref()
+                .map(|value| {
+                    value
+                        .as_mapping()
+                        .and_then(|mapping| mapping.keys().next())
+                        .and_then(|key| key.as_str())
+                        .map(|str| str.to_string())
+                })
+                .unwrap_or(None),
+            gog: game
+                .gog
+                .and_then(|gog_info| gog_info.id.map(|id| id.to_string())),
+            flatpak_id: game.id.as_ref().and_then(|id| id.flatpak.clone()),
+            lutris_id: game.id.as_ref().and_then(|id| id.lutris.clone()),
+            epic_cloud: game.cloud.and_then(|cloud| cloud.epic),
+            gog_cloud: game.cloud.and_then(|cloud| cloud.gog),
+            origin_cloud: game.cloud.and_then(|cloud| cloud.origin),
+            steam_cloud: game.cloud.and_then(|cloud| cloud.steam),
+            uplay_cloud: game.cloud.and_then(|cloud| cloud.uplay),
+            gog_extra: game.id.as_ref().and_then(|id| id.gog_extra.clone()),
+            steam_extra: game.id.as_ref().and_then(|id| id.steam_extra.clone()),
         },
         extract_executable_path_from_game(game),
         extract_save_path_from_game(game),

@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::error::Error;
 
 use crate::database::datatype::{
-    DbApiTokens, DbConfiguration, DbDbInfo, DbFileHash, DbGameExecutable, DbGameMetadata,
-    DbGameName, DbGamePath, DbGameSave,
+    DbApiTokens, DbConfiguration, DbDbInfo, DbFileHash, DbGameExecutable, DbGameGogExtraId,
+    DbGameMetadata, DbGameName, DbGamePath, DbGameSave, DbGameSteamExtraId,
 };
 use crate::database::schema::{
-    api_tokens, configurations, db_info, file_hash, game_alt_name, game_executable, game_metadata,
-    game_path, game_save,
+    api_tokens, configurations, db_info, file_hash, game_alt_name, game_executable,
+    game_gog_extra_id, game_metadata, game_path, game_save, game_steam_extra_id,
 };
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate,
@@ -24,6 +24,88 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 pub struct GameDatabase {
     pub pool: DbPool,
+}
+
+fn add_game_metadata(
+    connection: &mut SqliteConnection,
+    game_metadata: &GameMetadataCreate,
+) -> Result<i32, Box<dyn Error + Send + Sync>> {
+    diesel::insert_into(game_metadata::table)
+        .values(DbGameMetadata {
+            id: None,
+            steam_appid: game_metadata.steam_appid.clone(),
+            default_name: game_metadata.default_name.clone(),
+            install_dir: game_metadata.install_dir.clone(),
+            gog: game_metadata.gog.clone(),
+            flatpak_id: game_metadata.flatpak_id.clone(),
+            lutris_id: game_metadata.lutris_id.clone(),
+            epic_cloud: game_metadata.epic_cloud,
+            gog_cloud: game_metadata.gog_cloud,
+            origin_cloud: game_metadata.origin_cloud,
+            steam_cloud: game_metadata.steam_cloud,
+            uplay_cloud: game_metadata.uplay_cloud,
+        })
+        .execute(connection)?;
+
+    let inserted_id: Option<i32> = game_metadata::table
+        .select(game_metadata::id)
+        .order(game_metadata::id.desc())
+        .first(connection)?;
+
+    let inserted_id = match inserted_id {
+        Some(id) => id,
+        None => return Err("Failed to get inserted id".into()),
+    };
+
+    diesel::insert_into(game_alt_name::table)
+        .values(
+            game_metadata
+                .known_name
+                .as_ref()
+                .iter()
+                .flat_map(|names| {
+                    names.iter().map(|name| DbGameName {
+                        name: name.to_string(),
+                        game_metadata_id: inserted_id,
+                    })
+                })
+                .collect::<Vec<_>>(),
+        )
+        .execute(connection)?;
+
+    diesel::insert_into(game_gog_extra_id::table)
+        .values(
+            game_metadata
+                .gog_extra
+                .as_ref()
+                .iter()
+                .flat_map(|gog_extras| {
+                    gog_extras.iter().map(|gog_extra| DbGameGogExtraId {
+                        id: *gog_extra,
+                        game_metadata_id: inserted_id,
+                    })
+                })
+                .collect::<Vec<_>>(),
+        )
+        .execute(connection)?;
+
+    diesel::insert_into(game_steam_extra_id::table)
+        .values(
+            game_metadata
+                .steam_extra
+                .as_ref()
+                .iter()
+                .flat_map(|steam_extras| {
+                    steam_extras.iter().map(|steam_extra| DbGameSteamExtraId {
+                        id: *steam_extra,
+                        game_metadata_id: inserted_id,
+                    })
+                })
+                .collect::<Vec<_>>(),
+        )
+        .execute(connection)?;
+
+    Ok(inserted_id)
 }
 
 impl GameDatabase {
@@ -78,37 +160,7 @@ impl GameDatabase {
 
         connection.immediate_transaction(|conn| {
             for (meta, executables, paths) in games {
-                diesel::insert_into(game_metadata::table)
-                    .values(DbGameMetadata {
-                        id: None,
-                        steam_appid: meta.steam_appid.clone(),
-                        default_name: meta.default_name.clone(),
-                    })
-                    .execute(conn)?;
-
-                let inserted_id: Option<i32> = game_metadata::table
-                    .select(game_metadata::id)
-                    .order(game_metadata::id.desc())
-                    .first(conn)?;
-
-                let inserted_id = match inserted_id {
-                    Some(id) => id,
-                    None => return Err("Failed to get inserted id".into()),
-                };
-
-                if !meta.known_name.is_empty() {
-                    diesel::insert_into(game_alt_name::table)
-                        .values(
-                            meta.known_name
-                                .iter()
-                                .map(|name| DbGameName {
-                                    name: name.to_string(),
-                                    game_metadata_id: inserted_id,
-                                })
-                                .collect::<Vec<_>>(),
-                        )
-                        .execute(conn)?;
-                }
+                let inserted_id = add_game_metadata(conn, &meta)?;
 
                 if !executables.is_empty() {
                     diesel::insert_into(game_executable::table)
@@ -154,42 +206,8 @@ impl GameDatabase {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
-            diesel::insert_into(game_metadata::table)
-                .values(
-                    games_metadata
-                        .iter()
-                        .map(|game_metadata| DbGameMetadata {
-                            id: None,
-                            steam_appid: game_metadata.steam_appid.clone(),
-                            default_name: game_metadata.default_name.clone(),
-                        })
-                        .collect::<Vec<DbGameMetadata>>(),
-                )
-                .execute(connection)?;
-
-            let inserted_id: Option<i32> = game_metadata::table
-                .select(game_metadata::id)
-                .order(game_metadata::id.desc())
-                .first(connection)?;
-
-            let inserted_id = match inserted_id {
-                Some(id) => id,
-                None => return Err("Failed to get inserted id".into()),
-            };
-
             for game_metadata in games_metadata {
-                diesel::insert_into(game_alt_name::table)
-                    .values(
-                        game_metadata
-                            .known_name
-                            .iter()
-                            .map(|name| DbGameName {
-                                name: name.to_string(),
-                                game_metadata_id: inserted_id,
-                            })
-                            .collect::<Vec<_>>(),
-                    )
-                    .execute(connection)?;
+                add_game_metadata(connection, game_metadata)?;
             }
 
             Ok(())
@@ -208,10 +226,23 @@ impl GameDatabase {
 
         let mut games: Vec<GameMetadata> = Vec::with_capacity(db_games.len());
         for db_game in db_games {
-            let known_name: Vec<String> = game_alt_name::table
+            let known_name: Option<Vec<String>> = game_alt_name::table
                 .filter(game_alt_name::game_metadata_id.eq(db_game.id.unwrap()))
                 .select(game_alt_name::name)
-                .load(connection)?;
+                .load(connection)
+                .optional()?;
+
+            let gog_extra: Option<Vec<i64>> = game_gog_extra_id::table
+                .filter(game_gog_extra_id::game_metadata_id.eq(db_game.id.unwrap()))
+                .select(game_gog_extra_id::id)
+                .load(connection)
+                .optional()?;
+
+            let steam_extra: Option<Vec<i64>> = game_steam_extra_id::table
+                .filter(game_steam_extra_id::game_metadata_id.eq(db_game.id.unwrap()))
+                .select(game_steam_extra_id::id)
+                .load(connection)
+                .optional()?;
 
             games.push(GameMetadata {
                 id: db_game.id,
@@ -219,6 +250,17 @@ impl GameDatabase {
                     known_name,
                     steam_appid: db_game.steam_appid,
                     default_name: db_game.default_name,
+                    install_dir: db_game.install_dir,
+                    gog: db_game.gog,
+                    flatpak_id: db_game.flatpak_id,
+                    lutris_id: db_game.lutris_id,
+                    epic_cloud: db_game.epic_cloud,
+                    gog_cloud: db_game.gog_cloud,
+                    origin_cloud: db_game.origin_cloud,
+                    steam_cloud: db_game.steam_cloud,
+                    uplay_cloud: db_game.uplay_cloud,
+                    gog_extra,
+                    steam_extra,
                 },
             });
         }
@@ -248,10 +290,23 @@ impl GameDatabase {
                 None => return Ok(None),
             };
 
-            let name_rows: Vec<String> = game_alt_name::table
+            let name_rows: Option<Vec<String>> = game_alt_name::table
                 .filter(game_alt_name::game_metadata_id.eq(id))
                 .select(game_alt_name::name)
-                .load(connection)?;
+                .load(connection)
+                .optional()?;
+
+            let gog_extra: Option<Vec<i64>> = game_gog_extra_id::table
+                .filter(game_gog_extra_id::game_metadata_id.eq(id))
+                .select(game_gog_extra_id::id)
+                .load(connection)
+                .optional()?;
+
+            let steam_extra: Option<Vec<i64>> = game_steam_extra_id::table
+                .filter(game_steam_extra_id::game_metadata_id.eq(id))
+                .select(game_steam_extra_id::id)
+                .load(connection)
+                .optional()?;
 
             Ok(Some(GameMetadata {
                 id: Some(id),
@@ -259,6 +314,17 @@ impl GameDatabase {
                     known_name: name_rows,
                     steam_appid: meta.steam_appid,
                     default_name: meta.default_name,
+                    install_dir: meta.install_dir,
+                    gog: meta.gog,
+                    flatpak_id: meta.flatpak_id,
+                    lutris_id: meta.lutris_id,
+                    epic_cloud: meta.epic_cloud,
+                    gog_cloud: meta.gog_cloud,
+                    origin_cloud: meta.origin_cloud,
+                    steam_cloud: meta.steam_cloud,
+                    uplay_cloud: meta.uplay_cloud,
+                    gog_extra,
+                    steam_extra,
                 },
             }))
         })
@@ -268,14 +334,29 @@ impl GameDatabase {
         let connection = &mut self.pool.get()?;
         let db_games: Vec<DbGameMetadata> = game_metadata::table
             .select(DbGameMetadata::as_select())
-            .load(connection)?;
+            .load(connection)
+            .optional()?
+            .unwrap_or_default();
 
         let mut games = Vec::with_capacity(db_games.len());
         for db_game_metadata in db_games {
-            let known_name: Vec<String> = game_alt_name::table
+            let known_name: Option<Vec<String>> = game_alt_name::table
                 .filter(game_alt_name::game_metadata_id.eq(db_game_metadata.id.unwrap()))
                 .select(game_alt_name::name)
-                .load(connection)?;
+                .load(connection)
+                .optional()?;
+
+            let gog_extra: Option<Vec<i64>> = game_gog_extra_id::table
+                .filter(game_gog_extra_id::game_metadata_id.eq(db_game_metadata.id.unwrap()))
+                .select(game_gog_extra_id::id)
+                .load(connection)
+                .optional()?;
+
+            let steam_extra: Option<Vec<i64>> = game_steam_extra_id::table
+                .filter(game_steam_extra_id::game_metadata_id.eq(db_game_metadata.id.unwrap()))
+                .select(game_steam_extra_id::id)
+                .load(connection)
+                .optional()?;
 
             games.push(GameMetadata {
                 id: db_game_metadata.id,
@@ -283,6 +364,17 @@ impl GameDatabase {
                     known_name,
                     steam_appid: db_game_metadata.steam_appid,
                     default_name: db_game_metadata.default_name,
+                    install_dir: db_game_metadata.install_dir,
+                    gog: db_game_metadata.gog,
+                    flatpak_id: db_game_metadata.flatpak_id,
+                    lutris_id: db_game_metadata.lutris_id,
+                    epic_cloud: db_game_metadata.epic_cloud,
+                    gog_cloud: db_game_metadata.gog_cloud,
+                    origin_cloud: db_game_metadata.origin_cloud,
+                    steam_cloud: db_game_metadata.steam_cloud,
+                    uplay_cloud: db_game_metadata.uplay_cloud,
+                    gog_extra,
+                    steam_extra,
                 },
             });
         }
@@ -315,10 +407,23 @@ impl GameDatabase {
 
         let mut games = Vec::with_capacity(games_map.len());
         for (game_id, (db_game_metadata, db_paths)) in games_map {
-            let known_name: Vec<String> = game_alt_name::table
+            let known_name: Option<Vec<String>> = game_alt_name::table
                 .filter(game_alt_name::game_metadata_id.eq(game_id))
                 .select(game_alt_name::name)
-                .load(connection)?;
+                .load(connection)
+                .optional()?;
+
+            let gog_extra: Option<Vec<i64>> = game_gog_extra_id::table
+                .filter(game_gog_extra_id::game_metadata_id.eq(game_id))
+                .select(game_gog_extra_id::id)
+                .load(connection)
+                .optional()?;
+
+            let steam_extra: Option<Vec<i64>> = game_steam_extra_id::table
+                .filter(game_steam_extra_id::game_metadata_id.eq(game_id))
+                .select(game_steam_extra_id::id)
+                .load(connection)
+                .optional()?;
 
             games.push(GameMetadataWithPaths {
                 game_metadata: GameMetadata {
@@ -327,6 +432,17 @@ impl GameDatabase {
                         known_name,
                         steam_appid: db_game_metadata.steam_appid,
                         default_name: db_game_metadata.default_name,
+                        install_dir: db_game_metadata.install_dir,
+                        gog: db_game_metadata.gog,
+                        flatpak_id: db_game_metadata.flatpak_id,
+                        lutris_id: db_game_metadata.lutris_id,
+                        epic_cloud: db_game_metadata.epic_cloud,
+                        gog_cloud: db_game_metadata.gog_cloud,
+                        origin_cloud: db_game_metadata.origin_cloud,
+                        steam_cloud: db_game_metadata.steam_cloud,
+                        uplay_cloud: db_game_metadata.uplay_cloud,
+                        gog_extra,
+                        steam_extra,
                     },
                 },
                 paths: db_paths
