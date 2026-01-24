@@ -115,7 +115,7 @@ pub struct DbGameGogExtraId {
 }
 
 #[derive(Insertable, Selectable, Queryable, PartialEq)]
-#[diesel(primary_key(id, game_metadata_id))]
+#[diesel(primary_key(path, game_metadata_id))]
 #[diesel(belongs_to(DbGameMetadata, foreign_key = game_metadata_id))]
 #[diesel(table_name = game_registry)]
 pub struct DbGameRegistry {

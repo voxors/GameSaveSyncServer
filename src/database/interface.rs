@@ -236,7 +236,9 @@ impl GameDatabase {
         let db_games: Vec<DbGameMetadata> = game_metadata::table
             .filter(game_metadata::default_name.eq(target_name))
             .select(DbGameMetadata::as_select())
-            .load(connection)?;
+            .load(connection)
+            .optional()?
+            .unwrap_or_default();
 
         let mut games: Vec<GameMetadata> = Vec::with_capacity(db_games.len());
         for db_game in db_games {
@@ -492,6 +494,7 @@ impl GameDatabase {
             .execute(connection)?;
         Ok(())
     }
+
     pub fn get_paths_by_game_id_and_os(
         &self,
         game_id: i32,
@@ -502,7 +505,9 @@ impl GameDatabase {
             .filter(game_path::game_metadata_id.eq(game_id))
             .filter(game_path::operating_system.eq(os))
             .select(game_path::path)
-            .load(connection)?;
+            .load(connection)
+            .optional()?
+            .unwrap_or_default();
         Ok(paths)
     }
 
@@ -567,7 +572,9 @@ impl GameDatabase {
                 game_executable::executable,
                 game_executable::operating_system,
             ))
-            .load(connection)?;
+            .load(connection)
+            .optional()?
+            .unwrap_or_default();
         let mut executables: Vec<Executable> = Vec::with_capacity(executable_rows.len());
         for (id, executable, os) in executable_rows {
             executables.push(Executable {
@@ -621,7 +628,9 @@ impl GameDatabase {
         let save_rows = game_save::table
             .filter(game_save::path_id.eq(path_id))
             .select(DbGameSave::as_select())
-            .load(connection)?;
+            .load(connection)
+            .optional()?
+            .unwrap_or_default();
 
         if save_rows.is_empty() {
             return Ok(None);
@@ -744,6 +753,43 @@ impl GameDatabase {
             .set(configurations::columns::value.eq(value))
             .execute(connection)?;
 
+        Ok(())
+    }
+
+    pub fn get_game_registry_by_game_id(
+        &self,
+        game_id: i32,
+    ) -> Result<Vec<GameRegistry>, Box<dyn Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+        let registries: Option<Vec<GameRegistry>> = game_registry::table
+            .filter(game_registry::game_metadata_id.eq(game_id))
+            .load::<DbGameRegistry>(connection)
+            .optional()?
+            .map(|vec_db_game_registry| {
+                vec_db_game_registry
+                    .iter()
+                    .map(|db_game_registry| GameRegistry {
+                        path: db_game_registry.path.clone(),
+                    })
+                    .collect()
+            });
+
+        Ok(registries.unwrap_or_default())
+    }
+
+    pub fn add_game_registry_path(
+        &self,
+        game_id: i32,
+        registry: &GameRegistry,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+
+        diesel::insert_into(game_registry::table)
+            .values(DbGameRegistry {
+                path: registry.path.clone(),
+                game_metadata_id: game_id,
+            })
+            .execute(connection)?;
         Ok(())
     }
 }

@@ -14,6 +14,7 @@ mod route_executables;
 mod route_games;
 mod route_health;
 mod route_paths;
+mod route_registry_paths;
 mod route_saves;
 mod route_uuid;
 mod route_web_configuration;
@@ -38,6 +39,7 @@ use crate::route_games::{
 };
 use crate::route_health::get_health;
 use crate::route_paths::{get_game_paths, get_game_paths_by_os, post_game_path};
+use crate::route_registry_paths::{get_game_registries, post_game_registry};
 use crate::route_saves::{
     get_game_save_by_uuid, get_game_saves_reference_by_path_id, post_game_save_by_path_id,
 };
@@ -117,6 +119,10 @@ async fn main() {
             get(get_game_paths).post(post_game_path),
         )
         .route("/games/{Id}/paths/{OS}", get(get_game_paths_by_os))
+        .route(
+            "/games/{Id}/registry",
+            get(get_game_registries).post(post_game_registry),
+        )
         .route("/health", get(get_health))
         .route(
             "/paths/{Id}/saves",
