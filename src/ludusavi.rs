@@ -8,15 +8,10 @@ use tokio::{fs, io::AsyncReadExt};
 
 use crate::{
     DATABASE,
-    datatype_endpoint::{ExecutableCreate, GameMetadataCreate, OS, SavePathCreate},
+    database::interface::GameFull,
+    datatype_endpoint::{ExecutableCreate, GameMetadataCreate, GameRegistry, OS, SavePathCreate},
     ludusavi_datatype::{Game, GameIndex, Os, Tag},
 };
-
-type GameFull = (
-    GameMetadataCreate,
-    Vec<ExecutableCreate>,
-    Vec<SavePathCreate>,
-);
 
 pub async fn yaml_import(yaml_path: impl AsRef<Path>) -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut file = fs::File::open(yaml_path).await?;
@@ -70,39 +65,48 @@ fn extract_datatype_endpoint_from_game_index(
     known_name: Option<Vec<String>>,
 ) -> GameFull {
     (
-        GameMetadataCreate {
-            default_name: name.to_string(),
-            known_name,
-            steam_appid: game
-                .steam
-                .and_then(|steam| steam.id.map(|id| id.to_string())),
-            install_dir: game
-                .install_dir
-                .as_ref()
-                .map(|value| {
-                    value
-                        .as_mapping()
-                        .and_then(|mapping| mapping.keys().next())
-                        .and_then(|key| key.as_str())
-                        .map(|str| str.to_string())
-                })
-                .unwrap_or(None),
-            gog: game
-                .gog
-                .and_then(|gog_info| gog_info.id.map(|id| id.to_string())),
-            flatpak_id: game.id.as_ref().and_then(|id| id.flatpak.clone()),
-            lutris_id: game.id.as_ref().and_then(|id| id.lutris.clone()),
-            epic_cloud: game.cloud.and_then(|cloud| cloud.epic),
-            gog_cloud: game.cloud.and_then(|cloud| cloud.gog),
-            origin_cloud: game.cloud.and_then(|cloud| cloud.origin),
-            steam_cloud: game.cloud.and_then(|cloud| cloud.steam),
-            uplay_cloud: game.cloud.and_then(|cloud| cloud.uplay),
-            gog_extra: game.id.as_ref().and_then(|id| id.gog_extra.clone()),
-            steam_extra: game.id.as_ref().and_then(|id| id.steam_extra.clone()),
-        },
+        create_game_metadata_from_name_game_known_name(name, game, known_name),
         extract_executable_path_from_game(game),
         extract_save_path_from_game(game),
+        extract_registry_from_game(game),
     )
+}
+
+fn create_game_metadata_from_name_game_known_name(
+    name: &str,
+    game: &Game,
+    known_name: Option<Vec<String>>,
+) -> GameMetadataCreate {
+    GameMetadataCreate {
+        default_name: name.to_string(),
+        known_name,
+        steam_appid: game
+            .steam
+            .and_then(|steam| steam.id.map(|id| id.to_string())),
+        install_dir: game
+            .install_dir
+            .as_ref()
+            .map(|value| {
+                value
+                    .as_mapping()
+                    .and_then(|mapping| mapping.keys().next())
+                    .and_then(|key| key.as_str())
+                    .map(|str| str.to_string())
+            })
+            .unwrap_or(None),
+        gog: game
+            .gog
+            .and_then(|gog_info| gog_info.id.map(|id| id.to_string())),
+        flatpak_id: game.id.as_ref().and_then(|id| id.flatpak.clone()),
+        lutris_id: game.id.as_ref().and_then(|id| id.lutris.clone()),
+        epic_cloud: game.cloud.and_then(|cloud| cloud.epic),
+        gog_cloud: game.cloud.and_then(|cloud| cloud.gog),
+        origin_cloud: game.cloud.and_then(|cloud| cloud.origin),
+        steam_cloud: game.cloud.and_then(|cloud| cloud.steam),
+        uplay_cloud: game.cloud.and_then(|cloud| cloud.uplay),
+        gog_extra: game.id.as_ref().and_then(|id| id.gog_extra.clone()),
+        steam_extra: game.id.as_ref().and_then(|id| id.steam_extra.clone()),
+    }
 }
 
 fn extract_executable_path_from_game(game: &Game) -> Vec<ExecutableCreate> {
@@ -152,6 +156,22 @@ fn extract_save_path_from_game(game: &Game) -> Vec<SavePathCreate> {
         .map(|(file_path, os)| SavePathCreate {
             path: file_path.clone(),
             operating_system: os,
+        })
+        .collect()
+}
+
+fn extract_registry_from_game(game: &Game) -> Vec<GameRegistry> {
+    game.registry
+        .iter()
+        .flatten()
+        .filter(|(_, registry_rule)| {
+            registry_rule
+                .tags
+                .iter()
+                .any(|tags| tags.contains(&Tag::Save))
+        })
+        .map(|(registry_path, _)| GameRegistry {
+            path: registry_path.clone(),
         })
         .collect()
 }

@@ -3,15 +3,15 @@ use std::error::Error;
 
 use crate::database::datatype::{
     DbApiTokens, DbConfiguration, DbDbInfo, DbFileHash, DbGameExecutable, DbGameGogExtraId,
-    DbGameMetadata, DbGameName, DbGamePath, DbGameSave, DbGameSteamExtraId,
+    DbGameMetadata, DbGameName, DbGamePath, DbGameRegistry, DbGameSave, DbGameSteamExtraId,
 };
 use crate::database::schema::{
     api_tokens, configurations, db_info, file_hash, game_alt_name, game_executable,
-    game_gog_extra_id, game_metadata, game_path, game_save, game_steam_extra_id,
+    game_gog_extra_id, game_metadata, game_path, game_registry, game_save, game_steam_extra_id,
 };
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate,
-    GameMetadataWithPaths, OS, SavePath, SavePathCreate, SaveReference,
+    GameMetadataWithPaths, GameRegistry, OS, SavePath, SavePathCreate, SaveReference,
 };
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -25,6 +25,13 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 pub struct GameDatabase {
     pub pool: DbPool,
 }
+
+pub type GameFull = (
+    GameMetadataCreate,
+    Vec<ExecutableCreate>,
+    Vec<SavePathCreate>,
+    Vec<GameRegistry>,
+);
 
 fn add_game_metadata(
     connection: &mut SqliteConnection,
@@ -148,18 +155,11 @@ impl GameDatabase {
         db
     }
 
-    pub fn add_games_full(
-        &self,
-        games: Vec<(
-            GameMetadataCreate,
-            Vec<ExecutableCreate>,
-            Vec<SavePathCreate>,
-        )>,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub fn add_games_full(&self, games: Vec<GameFull>) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|conn| {
-            for (meta, executables, paths) in games {
+            for (meta, executables, paths, registry) in games {
                 let inserted_id = add_game_metadata(conn, &meta)?;
 
                 if !executables.is_empty() {
@@ -167,10 +167,10 @@ impl GameDatabase {
                         .values(
                             executables
                                 .iter()
-                                .map(|exe| DbGameExecutable {
+                                .map(|executable| DbGameExecutable {
                                     id: None,
-                                    executable: exe.executable.clone(),
-                                    operating_system: exe.operating_system,
+                                    executable: executable.executable.clone(),
+                                    operating_system: executable.operating_system,
                                     game_metadata_id: inserted_id,
                                 })
                                 .collect::<Vec<_>>(),
@@ -183,10 +183,24 @@ impl GameDatabase {
                         .values(
                             paths
                                 .iter()
-                                .map(|p| DbGamePath {
+                                .map(|path| DbGamePath {
                                     id: None,
-                                    path: p.path.clone(),
-                                    operating_system: p.operating_system,
+                                    path: path.path.clone(),
+                                    operating_system: path.operating_system,
+                                    game_metadata_id: inserted_id,
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                        .execute(conn)?;
+                }
+
+                if !registry.is_empty() {
+                    diesel::insert_into(game_registry::table)
+                        .values(
+                            registry
+                                .iter()
+                                .map(|registry| DbGameRegistry {
+                                    path: registry.path.clone(),
                                     game_metadata_id: inserted_id,
                                 })
                                 .collect::<Vec<_>>(),

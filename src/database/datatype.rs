@@ -1,6 +1,6 @@
 use crate::database::schema::{
     api_tokens, configurations, db_info, file_hash, game_alt_name, game_executable,
-    game_gog_extra_id, game_metadata, game_path, game_save, game_steam_extra_id,
+    game_gog_extra_id, game_metadata, game_path, game_registry, game_save, game_steam_extra_id,
 };
 use crate::datatype_endpoint::OS;
 use diesel::prelude::{Associations, Identifiable};
@@ -111,5 +111,14 @@ pub struct DbGameSteamExtraId {
 #[diesel(table_name = game_gog_extra_id)]
 pub struct DbGameGogExtraId {
     pub id: i64,
+    pub game_metadata_id: i32,
+}
+
+#[derive(Insertable, Selectable, Queryable, PartialEq)]
+#[diesel(primary_key(id, game_metadata_id))]
+#[diesel(belongs_to(DbGameMetadata, foreign_key = game_metadata_id))]
+#[diesel(table_name = game_registry)]
+pub struct DbGameRegistry {
+    pub path: String,
     pub game_metadata_id: i32,
 }

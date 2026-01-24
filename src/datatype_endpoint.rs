@@ -168,3 +168,8 @@ pub struct GameMetadataWithPaths {
 pub struct ConfigurationForm {
     pub value: String,
 }
+
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
+pub struct GameRegistry {
+    pub path: String,
+}
