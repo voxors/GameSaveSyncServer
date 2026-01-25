@@ -51,6 +51,7 @@ fn add_game_metadata(
             origin_cloud: game_metadata.origin_cloud,
             steam_cloud: game_metadata.steam_cloud,
             uplay_cloud: game_metadata.uplay_cloud,
+            ludusavi_managed: game_metadata.ludusavi_managed,
         })
         .execute(connection)?;
 
@@ -64,6 +65,16 @@ fn add_game_metadata(
         None => return Err("Failed to get inserted id".into()),
     };
 
+    add_game_metadata_additional_info(connection, game_metadata, inserted_id)?;
+
+    Ok(inserted_id)
+}
+
+fn add_game_metadata_additional_info(
+    connection: &mut SqliteConnection,
+    game_metadata: &GameMetadataCreate,
+    inserted_id: i32,
+) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
     diesel::insert_into(game_alt_name::table)
         .values(
             game_metadata
@@ -79,7 +90,6 @@ fn add_game_metadata(
                 .collect::<Vec<_>>(),
         )
         .execute(connection)?;
-
     diesel::insert_into(game_gog_extra_id::table)
         .values(
             game_metadata
@@ -95,7 +105,6 @@ fn add_game_metadata(
                 .collect::<Vec<_>>(),
         )
         .execute(connection)?;
-
     diesel::insert_into(game_steam_extra_id::table)
         .values(
             game_metadata
@@ -111,8 +120,47 @@ fn add_game_metadata(
                 .collect::<Vec<_>>(),
         )
         .execute(connection)?;
+    Ok(())
+}
 
-    Ok(inserted_id)
+fn update_game_metadata(
+    connection: &mut SqliteConnection,
+    db_game_id: i32,
+    game_metadata: &GameMetadataCreate,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    diesel::update(game_metadata::table)
+        .filter(game_metadata::id.eq(db_game_id))
+        .set(DbGameMetadata {
+            id: Some(db_game_id),
+            steam_appid: game_metadata.steam_appid.clone(),
+            default_name: game_metadata.default_name.clone(),
+            install_dir: game_metadata.install_dir.clone(),
+            gog: game_metadata.gog.clone(),
+            flatpak_id: game_metadata.flatpak_id.clone(),
+            lutris_id: game_metadata.lutris_id.clone(),
+            epic_cloud: game_metadata.epic_cloud,
+            gog_cloud: game_metadata.gog_cloud,
+            origin_cloud: game_metadata.origin_cloud,
+            steam_cloud: game_metadata.steam_cloud,
+            uplay_cloud: game_metadata.uplay_cloud,
+            ludusavi_managed: game_metadata.ludusavi_managed,
+        })
+        .execute(connection)?;
+
+    diesel::delete(game_alt_name::table.filter(game_alt_name::game_metadata_id.eq(db_game_id)))
+        .execute(connection)?;
+    diesel::delete(
+        game_gog_extra_id::table.filter(game_gog_extra_id::game_metadata_id.eq(db_game_id)),
+    )
+    .execute(connection)?;
+    diesel::delete(
+        game_steam_extra_id::table.filter(game_steam_extra_id::game_metadata_id.eq(db_game_id)),
+    )
+    .execute(connection)?;
+
+    add_game_metadata_additional_info(connection, game_metadata, db_game_id)?;
+
+    Ok(())
 }
 
 impl GameDatabase {
@@ -213,6 +261,75 @@ impl GameDatabase {
         })
     }
 
+    pub fn update_games_full(
+        &self,
+        games: Vec<(i32, GameFull)>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+
+        connection.immediate_transaction(|conn| {
+            for (db_game_id, (meta, executables, paths, registries)) in games {
+                update_game_metadata(conn, db_game_id, &meta)?;
+
+                for executable in executables {
+                    diesel::insert_into(game_executable::table)
+                        .values(DbGameExecutable {
+                            id: None,
+                            executable: executable.executable.clone(),
+                            operating_system: executable.operating_system,
+                            game_metadata_id: db_game_id,
+                        })
+                        .on_conflict((
+                            game_executable::executable,
+                            game_executable::operating_system,
+                            game_executable::game_metadata_id,
+                        ))
+                        .do_update()
+                        .set((
+                            game_executable::executable.eq(executable.executable.clone()),
+                            game_executable::operating_system.eq(executable.operating_system),
+                        ))
+                        .execute(conn)?;
+                }
+
+                for path in paths {
+                    diesel::insert_into(game_path::table)
+                        .values(DbGamePath {
+                            id: None,
+                            path: path.path.clone(),
+                            operating_system: path.operating_system,
+                            game_metadata_id: db_game_id,
+                        })
+                        .on_conflict((
+                            game_path::path,
+                            game_path::operating_system,
+                            game_path::game_metadata_id,
+                        ))
+                        .do_update()
+                        .set((
+                            game_path::path.eq(path.path.clone()),
+                            game_path::operating_system.eq(path.operating_system),
+                        ))
+                        .execute(conn)?;
+                }
+
+                for registry in registries {
+                    diesel::insert_into(game_registry::table)
+                        .values(DbGameRegistry {
+                            path: registry.path.clone(),
+                            game_metadata_id: db_game_id,
+                        })
+                        .on_conflict((game_registry::path, game_registry::game_metadata_id))
+                        .do_update()
+                        .set(game_registry::path.eq(registry.path))
+                        .execute(conn)?;
+                }
+            }
+
+            Ok(())
+        })
+    }
+
     pub fn add_games_metadata(
         &self,
         games_metadata: Vec<&GameMetadataCreate>,
@@ -277,6 +394,7 @@ impl GameDatabase {
                     uplay_cloud: db_game.uplay_cloud,
                     gog_extra,
                     steam_extra,
+                    ludusavi_managed: db_game.ludusavi_managed,
                 },
             });
         }
@@ -341,6 +459,7 @@ impl GameDatabase {
                     uplay_cloud: meta.uplay_cloud,
                     gog_extra,
                     steam_extra,
+                    ludusavi_managed: meta.ludusavi_managed,
                 },
             }))
         })
@@ -391,6 +510,7 @@ impl GameDatabase {
                     uplay_cloud: db_game_metadata.uplay_cloud,
                     gog_extra,
                     steam_extra,
+                    ludusavi_managed: db_game_metadata.ludusavi_managed,
                 },
             });
         }
@@ -459,6 +579,7 @@ impl GameDatabase {
                         uplay_cloud: db_game_metadata.uplay_cloud,
                         gog_extra,
                         steam_extra,
+                        ludusavi_managed: db_game_metadata.ludusavi_managed,
                     },
                 },
                 paths: db_paths

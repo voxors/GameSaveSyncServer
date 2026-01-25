@@ -37,3 +37,5 @@ ALTER TABLE game_metadata
 ADD COLUMN steam_cloud BOOL;
 ALTER TABLE game_metadata
 ADD COLUMN uplay_cloud BOOL;
+ALTER TABLE game_metadata
+ADD COLUMN ludusavi_managed BOOL;

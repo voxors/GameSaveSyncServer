@@ -135,6 +135,7 @@ pub struct GameMetadataCreate {
     pub uplay_cloud: Option<bool>,
     pub gog_extra: Option<Vec<i64>>,
     pub steam_extra: Option<Vec<i64>>,
+    pub ludusavi_managed: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema, IntoParams, Clone)]

@@ -20,3 +20,5 @@ ALTER TABLE game_metadata
 DROP COLUMN steam_cloud;
 ALTER TABLE game_metadata
 DROP COLUMN uplay_cloud;
+ALTER TABLE game_metadata
+DROP COLUMN ludusavi_managed;

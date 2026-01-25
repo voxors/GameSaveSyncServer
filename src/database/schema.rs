@@ -66,6 +66,7 @@ diesel::table! {
         origin_cloud -> Nullable<Bool>,
         steam_cloud -> Nullable<Bool>,
         uplay_cloud -> Nullable<Bool>,
+        ludusavi_managed -> Nullable<Bool>,
     }
 }
 

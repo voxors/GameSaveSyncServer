@@ -3,10 +3,10 @@ use crate::database::schema::{
     game_gog_extra_id, game_metadata, game_path, game_registry, game_save, game_steam_extra_id,
 };
 use crate::datatype_endpoint::OS;
-use diesel::prelude::{Associations, Identifiable};
+use diesel::prelude::{AsChangeset, Associations, Identifiable};
 use diesel::{Insertable, Queryable, Selectable};
 
-#[derive(Identifiable, Insertable, Clone, Selectable, Queryable, PartialEq, Debug)]
+#[derive(Identifiable, Insertable, Clone, Selectable, Queryable, PartialEq, AsChangeset, Debug)]
 #[diesel(table_name = game_metadata)]
 pub struct DbGameMetadata {
     pub id: Option<i32>,
@@ -21,6 +21,7 @@ pub struct DbGameMetadata {
     pub origin_cloud: Option<bool>,
     pub steam_cloud: Option<bool>,
     pub uplay_cloud: Option<bool>,
+    pub ludusavi_managed: Option<bool>,
 }
 
 #[derive(Identifiable, Insertable, Selectable, Queryable, PartialEq, Debug)]
@@ -31,7 +32,7 @@ pub struct DbGameName {
     pub game_metadata_id: i32,
 }
 
-#[derive(Insertable, Selectable, Queryable, PartialEq)]
+#[derive(Insertable, Selectable, Queryable, PartialEq, AsChangeset)]
 #[diesel(primary_key(id))]
 #[diesel(belongs_to(DbGameMetadata, foreign_key = game_metadata_id))]
 #[diesel(table_name = game_executable)]
@@ -42,7 +43,7 @@ pub struct DbGameExecutable {
     pub game_metadata_id: i32,
 }
 
-#[derive(Insertable, Selectable, Queryable, PartialEq)]
+#[derive(Insertable, Selectable, Queryable, PartialEq, AsChangeset)]
 #[diesel(primary_key(id))]
 #[diesel(belongs_to(DbGameMetadata, foreign_key = game_metadata_id))]
 #[diesel(table_name = game_path)]

@@ -1,9 +1,5 @@
 use itertools::Itertools;
-use std::{
-    collections::{HashMap, HashSet},
-    error::Error,
-    path::Path,
-};
+use std::{collections::HashMap, error::Error, path::Path};
 use tokio::{fs, io::AsyncReadExt};
 
 use crate::{
@@ -21,15 +17,10 @@ pub async fn yaml_import(yaml_path: impl AsRef<Path>) -> Result<(), Box<dyn Erro
 
     let db_games_metadata = DATABASE
         .get_games_metadata()
-        .map_err(|err| err.to_string())?;
-
-    let mut game_name_hashmap = HashSet::new();
-    game_name_hashmap.reserve(db_games_metadata.len());
-    game_name_hashmap.extend(
-        db_games_metadata
-            .iter()
-            .map(|db_game_metadata| db_game_metadata.metadata.default_name.clone()),
-    );
+        .map_err(|err| err.to_string())?
+        .into_iter()
+        .map(|game_metadata| (game_metadata.metadata.clone().default_name, game_metadata))
+        .collect::<HashMap<_, _>>();
 
     let mut game_known_name_hashmap: HashMap<String, Vec<String>> = HashMap::new();
     games
@@ -42,19 +33,32 @@ pub async fn yaml_import(yaml_path: impl AsRef<Path>) -> Result<(), Box<dyn Erro
                 .or_insert(vec![name.clone()]);
         });
 
-    DATABASE.add_games_full(
-        games
-            .iter()
-            .filter(|(name, game)| !game_name_hashmap.contains(*name) && game.alias.is_none())
-            .map(|(name, game)| {
+    let mut game_to_add: Vec<GameFull> = Vec::new();
+    let mut game_to_update: Vec<(i32, GameFull)> = Vec::new();
+
+    for (name, game) in games {
+        if game.alias.is_none() && !db_games_metadata.contains_key(name.as_str()) {
+            game_to_add.push(extract_datatype_endpoint_from_game_index(
+                &name,
+                &game,
+                game_known_name_hashmap.get(name.as_str()).cloned(),
+            ));
+        } else if let Some(metadata) = db_games_metadata.get(name.as_str())
+            && metadata.metadata.ludusavi_managed.unwrap_or(false)
+        {
+            game_to_update.push((
+                metadata.id.unwrap(),
                 extract_datatype_endpoint_from_game_index(
-                    name,
-                    game,
-                    game_known_name_hashmap.get(name).cloned(),
-                )
-            })
-            .collect::<Vec<GameFull>>(),
-    )?;
+                    &name,
+                    &game,
+                    game_known_name_hashmap.get(name.as_str()).cloned(),
+                ),
+            ));
+        }
+    }
+
+    DATABASE.add_games_full(game_to_add)?;
+    DATABASE.update_games_full(game_to_update)?;
 
     Ok(())
 }
@@ -106,6 +110,7 @@ fn create_game_metadata_from_name_game_known_name(
         uplay_cloud: game.cloud.and_then(|cloud| cloud.uplay),
         gog_extra: game.id.as_ref().and_then(|id| id.gog_extra.clone()),
         steam_extra: game.id.as_ref().and_then(|id| id.steam_extra.clone()),
+        ludusavi_managed: Some(true),
     }
 }
 
