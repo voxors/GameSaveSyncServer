@@ -45,6 +45,5 @@ COPY --from=builder --chown=appuser:appuser /usr/src/app/frontend/dist/static /a
 WORKDIR /app/GameSaveServer
 RUN mkdir -p data && chown appuser:appuser data
 USER appuser
-VOLUME /app/GameSaveServer/data
 EXPOSE 3000
 CMD ["./GameSaveServer"]
