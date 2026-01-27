@@ -9,7 +9,7 @@ async-trait = "0.1.89"
 axum = { version = "0.8.7", features = ["multipart", "macros"] }
 chrono = "0.4.42"
 const_format = "0.2.35"
-diesel = { version = "2.3.4", features = ["sqlite", "serde_json", "r2d2", "time"] }
+diesel = { version = "2.3.6", features = ["sqlite", "serde_json", "r2d2", "time"] }
 diesel_migrations = "2.3.1"
 itertools = "0.14.0"
 mime_guess = "2.0"

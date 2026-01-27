@@ -133,8 +133,14 @@ pub struct GameMetadataCreate {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = false, nullable)]
     pub uplay_cloud: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
     pub gog_extra: Option<Vec<i64>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
     pub steam_extra: Option<Vec<i64>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false, nullable)]
     pub ludusavi_managed: Option<bool>,
 }
 
