@@ -12,7 +12,6 @@ RUN apt-get update && \
 WORKDIR /usr/src/app/frontend
 COPY frontend/package.json package.json
 COPY frontend/package-lock.json package-lock.json
-COPY frontend/tailwind.config.js tailwind.config.js
 COPY frontend/tsconfig.json tsconfig.json
 COPY frontend/css css
 COPY frontend/dist/static dist/static
