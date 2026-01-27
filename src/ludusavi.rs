@@ -44,7 +44,7 @@ pub async fn yaml_import(yaml_path: impl AsRef<Path>) -> Result<(), Box<dyn Erro
                 game_known_name_hashmap.get(name.as_str()).cloned(),
             ));
         } else if let Some(metadata) = db_games_metadata.get(name.as_str())
-            && metadata.metadata.ludusavi_managed.unwrap_or(false)
+            && metadata.metadata.ludusavi_managed.unwrap_or(true)
         {
             game_to_update.push((
                 metadata.id.unwrap(),
