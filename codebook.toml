@@ -3,7 +3,10 @@ words = [
     "clippy",
     "endfor",
     "endmacro",
+    "flatpak",
     "ludusavi",
     "rustls",
     "serde",
+    "uplay",
+    "lutris"
 ]

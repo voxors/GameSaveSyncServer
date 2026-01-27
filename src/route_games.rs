@@ -13,7 +13,10 @@ use const_format::concatcp;
         (status = StatusCode::CREATED, description = "game metadata created")
     )
 )]
-pub async fn post_game_metadata(Json(payload): Json<GameMetadataCreate>) -> StatusCode {
+pub async fn post_game_metadata(Json(mut payload): Json<GameMetadataCreate>) -> StatusCode {
+    if payload.ludusavi_managed.is_none() {
+        payload.ludusavi_managed = Some(false);
+    }
     match DATABASE.add_games_metadata(vec![&payload]) {
         Ok(()) => StatusCode::CREATED,
         Err(e) => {
