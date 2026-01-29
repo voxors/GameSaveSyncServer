@@ -71,9 +71,9 @@ Clients should save this token and include it in the `Authorization: Bearer <tok
 - **Testing** – Unit tests are in `tests/` (not yet added). Run with `cargo test`.
 - **Formatting** – `cargo fmt`.
 - **Linting** – `cargo clippy`.
-- **Generating Tailwind CSS** - 'npm run --prefix ./frontend build:css'
-- **Generating JavaScript with source map** - 'npm run --prefix ./frontend build:js'
-- **Generating JavaScript without source map** - 'npm run --prefix ./frontend build:js-sourceMap'
+- **Generating Tailwind CSS** - `npm run --prefix ./frontend build:css`
+- **Generating JavaScript with source map** - `npm run --prefix ./frontend build:js`
+- **Generating JavaScript without source map** - `npm run --prefix ./frontend build:js-sourceMap`
 
 ---
 
