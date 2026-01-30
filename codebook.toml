@@ -1,12 +1,13 @@
 words = [
     "askama",
+    "autocheckpoint",
     "clippy",
     "endfor",
     "endmacro",
     "flatpak",
     "ludusavi",
+    "lutris",
     "rustls",
     "serde",
     "uplay",
-    "lutris"
 ]

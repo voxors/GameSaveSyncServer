@@ -13,8 +13,9 @@ use crate::datatype_endpoint::{
     Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate,
     GameMetadataWithPaths, GameRegistry, OS, SavePath, SavePathCreate, SaveReference,
 };
+use diesel::connection::SimpleConnection;
 use diesel::prelude::*;
-use diesel::r2d2::{ConnectionManager, Pool};
+use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool};
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use uuid::Uuid;
@@ -22,16 +23,19 @@ use uuid::Uuid;
 pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
+#[derive(Copy, Clone, Debug)]
+struct SqliteConnectionCustomizer {}
+
 pub struct GameDatabase {
     pub pool: DbPool,
 }
 
-pub type GameFull = (
-    GameMetadataCreate,
-    Vec<ExecutableCreate>,
-    Vec<SavePathCreate>,
-    Vec<GameRegistry>,
-);
+pub struct GameFull {
+    pub game_metadata: GameMetadataCreate,
+    pub executables: Vec<ExecutableCreate>,
+    pub paths: Vec<SavePathCreate>,
+    pub registries: Vec<GameRegistry>,
+}
 
 fn add_game_metadata(
     connection: &mut SqliteConnection,
@@ -163,10 +167,24 @@ fn update_game_metadata(
     Ok(())
 }
 
+impl CustomizeConnection<SqliteConnection, diesel::r2d2::Error> for SqliteConnectionCustomizer {
+    fn on_acquire(&self, connection: &mut SqliteConnection) -> Result<(), diesel::r2d2::Error> {
+        connection.batch_execute("PRAGMA busy_timeout = 2000;")?;
+        connection.batch_execute("PRAGMA journal_mode = WAL;")?;
+        connection.batch_execute("PRAGMA synchronous = NORMAL;")?;
+        connection.batch_execute("PRAGMA wal_autocheckpoint = 1000;")?;
+        connection.batch_execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
+        Ok(())
+    }
+
+    fn on_release(&self, _conn: SqliteConnection) {}
+}
+
 impl GameDatabase {
     pub fn new(db_path: &str) -> Self {
         let manager = ConnectionManager::<SqliteConnection>::new(db_path);
         let pool = Pool::builder()
+            .connection_customizer(Box::new(SqliteConnectionCustomizer {}))
             .build(manager)
             .expect("Failed to create pool");
 
@@ -206,14 +224,14 @@ impl GameDatabase {
     pub fn add_games_full(&self, games: Vec<GameFull>) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
-        connection.immediate_transaction(|conn| {
-            for (meta, executables, paths, registry) in games {
-                let inserted_id = add_game_metadata(conn, &meta)?;
+        for game in games {
+            connection.immediate_transaction(|conn| {
+                let inserted_id = add_game_metadata(conn, &game.game_metadata)?;
 
-                if !executables.is_empty() {
+                if !game.executables.is_empty() {
                     diesel::insert_into(game_executable::table)
                         .values(
-                            executables
+                            game.executables
                                 .iter()
                                 .map(|executable| DbGameExecutable {
                                     id: None,
@@ -226,10 +244,10 @@ impl GameDatabase {
                         .execute(conn)?;
                 }
 
-                if !paths.is_empty() {
+                if !game.paths.is_empty() {
                     diesel::insert_into(game_path::table)
                         .values(
-                            paths
+                            game.paths
                                 .iter()
                                 .map(|path| DbGamePath {
                                     id: None,
@@ -242,10 +260,10 @@ impl GameDatabase {
                         .execute(conn)?;
                 }
 
-                if !registry.is_empty() {
+                if !game.registries.is_empty() {
                     diesel::insert_into(game_registry::table)
                         .values(
-                            registry
+                            game.registries
                                 .iter()
                                 .map(|registry| DbGameRegistry {
                                     path: registry.path.clone(),
@@ -255,10 +273,12 @@ impl GameDatabase {
                         )
                         .execute(conn)?;
                 }
-            }
 
-            Ok(())
-        })
+                Ok::<(), Box<dyn Error + Send + Sync>>(())
+            })?
+        }
+
+        Ok(())
     }
 
     pub fn update_games_full(
@@ -267,11 +287,11 @@ impl GameDatabase {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
-        connection.immediate_transaction(|conn| {
-            for (db_game_id, (meta, executables, paths, registries)) in games {
-                update_game_metadata(conn, db_game_id, &meta)?;
+        for (db_game_id, game) in games {
+            connection.immediate_transaction(|conn| {
+                update_game_metadata(conn, db_game_id, &game.game_metadata)?;
 
-                for executable in executables {
+                for executable in game.executables {
                     diesel::insert_into(game_executable::table)
                         .values(DbGameExecutable {
                             id: None,
@@ -292,7 +312,7 @@ impl GameDatabase {
                         .execute(conn)?;
                 }
 
-                for path in paths {
+                for path in game.paths {
                     diesel::insert_into(game_path::table)
                         .values(DbGamePath {
                             id: None,
@@ -313,7 +333,7 @@ impl GameDatabase {
                         .execute(conn)?;
                 }
 
-                for registry in registries {
+                for registry in game.registries {
                     diesel::insert_into(game_registry::table)
                         .values(DbGameRegistry {
                             path: registry.path.clone(),
@@ -324,10 +344,11 @@ impl GameDatabase {
                         .set(game_registry::path.eq(registry.path))
                         .execute(conn)?;
                 }
-            }
+                Ok::<(), Box<dyn Error + Send + Sync>>(())
+            })?
+        }
 
-            Ok(())
-        })
+        Ok(())
     }
 
     pub fn add_games_metadata(
@@ -336,13 +357,13 @@ impl GameDatabase {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
-        connection.immediate_transaction(|connection| {
-            for game_metadata in games_metadata {
+        for game_metadata in games_metadata {
+            connection.immediate_transaction(|connection| {
                 add_game_metadata(connection, game_metadata)?;
-            }
-
-            Ok(())
-        })
+                Ok::<(), Box<dyn Error + Send + Sync>>(())
+            })?;
+        }
+        Ok(())
     }
 
     pub fn get_game_metadata_by_name(
