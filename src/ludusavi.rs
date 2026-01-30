@@ -68,12 +68,12 @@ fn extract_datatype_endpoint_from_game_index(
     game: &Game,
     known_name: Option<Vec<String>>,
 ) -> GameFull {
-    (
-        create_game_metadata_from_name_game_known_name(name, game, known_name),
-        extract_executable_path_from_game(game),
-        extract_save_path_from_game(game),
-        extract_registry_from_game(game),
-    )
+    GameFull {
+        game_metadata: create_game_metadata_from_name_game_known_name(name, game, known_name),
+        executables: extract_executable_path_from_game(game),
+        paths: extract_save_path_from_game(game),
+        registries: extract_registry_from_game(game),
+    }
 }
 
 fn create_game_metadata_from_name_game_known_name(

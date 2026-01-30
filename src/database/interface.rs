@@ -26,12 +26,12 @@ pub struct GameDatabase {
     pub pool: DbPool,
 }
 
-pub type GameFull = (
-    GameMetadataCreate,
-    Vec<ExecutableCreate>,
-    Vec<SavePathCreate>,
-    Vec<GameRegistry>,
-);
+pub struct GameFull {
+    pub game_metadata: GameMetadataCreate,
+    pub executables: Vec<ExecutableCreate>,
+    pub paths: Vec<SavePathCreate>,
+    pub registries: Vec<GameRegistry>,
+}
 
 fn add_game_metadata(
     connection: &mut SqliteConnection,
@@ -207,13 +207,13 @@ impl GameDatabase {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|conn| {
-            for (meta, executables, paths, registry) in games {
-                let inserted_id = add_game_metadata(conn, &meta)?;
+            for game in games {
+                let inserted_id = add_game_metadata(conn, &game.game_metadata)?;
 
-                if !executables.is_empty() {
+                if !game.executables.is_empty() {
                     diesel::insert_into(game_executable::table)
                         .values(
-                            executables
+                            game.executables
                                 .iter()
                                 .map(|executable| DbGameExecutable {
                                     id: None,
@@ -226,10 +226,10 @@ impl GameDatabase {
                         .execute(conn)?;
                 }
 
-                if !paths.is_empty() {
+                if !game.paths.is_empty() {
                     diesel::insert_into(game_path::table)
                         .values(
-                            paths
+                            game.paths
                                 .iter()
                                 .map(|path| DbGamePath {
                                     id: None,
@@ -242,10 +242,10 @@ impl GameDatabase {
                         .execute(conn)?;
                 }
 
-                if !registry.is_empty() {
+                if !game.registries.is_empty() {
                     diesel::insert_into(game_registry::table)
                         .values(
-                            registry
+                            game.registries
                                 .iter()
                                 .map(|registry| DbGameRegistry {
                                     path: registry.path.clone(),
@@ -268,10 +268,10 @@ impl GameDatabase {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|conn| {
-            for (db_game_id, (meta, executables, paths, registries)) in games {
-                update_game_metadata(conn, db_game_id, &meta)?;
+            for (db_game_id, game) in games {
+                update_game_metadata(conn, db_game_id, &game.game_metadata)?;
 
-                for executable in executables {
+                for executable in game.executables {
                     diesel::insert_into(game_executable::table)
                         .values(DbGameExecutable {
                             id: None,
@@ -292,7 +292,7 @@ impl GameDatabase {
                         .execute(conn)?;
                 }
 
-                for path in paths {
+                for path in game.paths {
                     diesel::insert_into(game_path::table)
                         .values(DbGamePath {
                             id: None,
@@ -313,7 +313,7 @@ impl GameDatabase {
                         .execute(conn)?;
                 }
 
-                for registry in registries {
+                for registry in game.registries {
                     diesel::insert_into(game_registry::table)
                         .values(DbGameRegistry {
                             path: registry.path.clone(),
