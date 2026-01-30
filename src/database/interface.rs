@@ -14,13 +14,16 @@ use crate::datatype_endpoint::{
     GameMetadataWithPaths, GameRegistry, OS, SavePath, SavePathCreate, SaveReference,
 };
 use diesel::prelude::*;
-use diesel::r2d2::{ConnectionManager, Pool};
+use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool};
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use uuid::Uuid;
 
 pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+
+#[derive(Copy, Clone, Debug)]
+struct SqliteConnectionCustomizer {}
 
 pub struct GameDatabase {
     pub pool: DbPool,
@@ -163,10 +166,19 @@ fn update_game_metadata(
     Ok(())
 }
 
+impl CustomizeConnection<SqliteConnection, diesel::r2d2::Error> for SqliteConnectionCustomizer {
+    fn on_acquire(&self, conn: &mut SqliteConnection) -> Result<(), diesel::r2d2::Error> {
+        Ok(())
+    }
+
+    fn on_release(&self, _conn: SqliteConnection) {}
+}
+
 impl GameDatabase {
     pub fn new(db_path: &str) -> Self {
         let manager = ConnectionManager::<SqliteConnection>::new(db_path);
         let pool = Pool::builder()
+            .connection_customizer(Box::new(SqliteConnectionCustomizer {}))
             .build(manager)
             .expect("Failed to create pool");
 
