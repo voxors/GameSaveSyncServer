@@ -151,6 +151,12 @@ pub struct GameMetadata {
     pub metadata: GameMetadataCreate,
 }
 
+#[derive(Serialize, Deserialize, ToSchema, IntoParams, Clone)]
+pub struct GameDefaultName {
+    pub id: i32,
+    pub default_name: String,
+}
+
 #[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct FileHash {
     pub relative_path: String,

@@ -1,6 +1,8 @@
 use crate::DATABASE;
 use crate::const_var::ROOT_API_PATH;
-use crate::datatype_endpoint::{GameMetadata, GameMetadataCreate, GameMetadataWithPaths};
+use crate::datatype_endpoint::{
+    GameDefaultName, GameMetadata, GameMetadataCreate, GameMetadataWithPaths,
+};
 use axum::{Json, extract::Path, http::StatusCode};
 use const_format::concatcp;
 
@@ -36,6 +38,24 @@ pub async fn post_game_metadata(Json(mut payload): Json<GameMetadataCreate>) -> 
 )]
 pub async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode> {
     match DATABASE.get_games_metadata() {
+        Ok(data) => Ok(Json(data)),
+        Err(e) => {
+            tracing::error!("Error retrieving game metadata: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = concatcp!(ROOT_API_PATH, "/games/default_name"),
+    params(),
+    responses(
+        (status = StatusCode::OK, description = "get all games defaults name", body = [GameDefaultName])
+    )
+)]
+pub async fn get_games_default_name() -> Result<Json<Vec<GameDefaultName>>, StatusCode> {
+    match DATABASE.get_games_default_name() {
         Ok(data) => Ok(Json(data)),
         Err(e) => {
             tracing::error!("Error retrieving game metadata: {}", e);

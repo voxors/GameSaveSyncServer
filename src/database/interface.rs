@@ -10,7 +10,7 @@ use crate::database::schema::{
     game_gog_extra_id, game_metadata, game_path, game_registry, game_save, game_steam_extra_id,
 };
 use crate::datatype_endpoint::{
-    Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate,
+    Executable, ExecutableCreate, FileHash, GameDefaultName, GameMetadata, GameMetadataCreate,
     GameMetadataWithPaths, GameRegistry, OS, SavePath, SavePathCreate, SaveReference,
 };
 use diesel::connection::SimpleConnection;
@@ -35,6 +35,18 @@ pub struct GameFull {
     pub executables: Vec<ExecutableCreate>,
     pub paths: Vec<SavePathCreate>,
     pub registries: Vec<GameRegistry>,
+}
+
+pub struct GameNameAndLudusavi {
+    pub id: i32,
+    pub default_name: String,
+    pub ludusavi_managed: Option<bool>,
+}
+
+pub struct GameAdditionalMetadata {
+    known_name: Option<Vec<String>>,
+    gog_extra: Option<Vec<i64>>,
+    steam_extra: Option<Vec<i64>>,
 }
 
 fn add_game_metadata(
@@ -165,6 +177,35 @@ fn update_game_metadata(
     add_game_metadata_additional_info(connection, game_metadata, db_game_id)?;
 
     Ok(())
+}
+
+fn load_game_additional_metadata_parts(
+    connection: &mut SqliteConnection,
+    db_game_id: i32,
+) -> Result<GameAdditionalMetadata, Box<dyn Error + Send + Sync>> {
+    let known_name: Option<Vec<String>> = game_alt_name::table
+        .filter(game_alt_name::game_metadata_id.eq(db_game_id))
+        .select(game_alt_name::name)
+        .load(connection)
+        .optional()?;
+
+    let gog_extra: Option<Vec<i64>> = game_gog_extra_id::table
+        .filter(game_gog_extra_id::game_metadata_id.eq(db_game_id))
+        .select(game_gog_extra_id::id)
+        .load(connection)
+        .optional()?;
+
+    let steam_extra: Option<Vec<i64>> = game_steam_extra_id::table
+        .filter(game_steam_extra_id::game_metadata_id.eq(db_game_id))
+        .select(game_steam_extra_id::id)
+        .load(connection)
+        .optional()?;
+
+    Ok(GameAdditionalMetadata {
+        known_name,
+        gog_extra,
+        steam_extra,
+    })
 }
 
 impl CustomizeConnection<SqliteConnection, diesel::r2d2::Error> for SqliteConnectionCustomizer {
@@ -380,28 +421,13 @@ impl GameDatabase {
 
         let mut games: Vec<GameMetadata> = Vec::with_capacity(db_games.len());
         for db_game in db_games {
-            let known_name: Option<Vec<String>> = game_alt_name::table
-                .filter(game_alt_name::game_metadata_id.eq(db_game.id.unwrap()))
-                .select(game_alt_name::name)
-                .load(connection)
-                .optional()?;
-
-            let gog_extra: Option<Vec<i64>> = game_gog_extra_id::table
-                .filter(game_gog_extra_id::game_metadata_id.eq(db_game.id.unwrap()))
-                .select(game_gog_extra_id::id)
-                .load(connection)
-                .optional()?;
-
-            let steam_extra: Option<Vec<i64>> = game_steam_extra_id::table
-                .filter(game_steam_extra_id::game_metadata_id.eq(db_game.id.unwrap()))
-                .select(game_steam_extra_id::id)
-                .load(connection)
-                .optional()?;
+            let additional_metadata =
+                load_game_additional_metadata_parts(connection, db_game.id.unwrap())?;
 
             games.push(GameMetadata {
                 id: db_game.id,
                 metadata: GameMetadataCreate {
-                    known_name,
+                    known_name: additional_metadata.known_name,
                     steam_appid: db_game.steam_appid,
                     default_name: db_game.default_name,
                     install_dir: db_game.install_dir,
@@ -413,8 +439,8 @@ impl GameDatabase {
                     origin_cloud: db_game.origin_cloud,
                     steam_cloud: db_game.steam_cloud,
                     uplay_cloud: db_game.uplay_cloud,
-                    gog_extra,
-                    steam_extra,
+                    gog_extra: additional_metadata.gog_extra,
+                    steam_extra: additional_metadata.steam_extra,
                     ludusavi_managed: db_game.ludusavi_managed,
                 },
             });
@@ -425,7 +451,7 @@ impl GameDatabase {
     pub fn get_game_metadata_by_id(
         &self,
         target_id: &i32,
-    ) -> Result<Option<GameMetadata>, Box<dyn Error>> {
+    ) -> Result<Option<GameMetadata>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
         connection.immediate_transaction(|connection| {
@@ -445,28 +471,12 @@ impl GameDatabase {
                 None => return Ok(None),
             };
 
-            let name_rows: Option<Vec<String>> = game_alt_name::table
-                .filter(game_alt_name::game_metadata_id.eq(id))
-                .select(game_alt_name::name)
-                .load(connection)
-                .optional()?;
-
-            let gog_extra: Option<Vec<i64>> = game_gog_extra_id::table
-                .filter(game_gog_extra_id::game_metadata_id.eq(id))
-                .select(game_gog_extra_id::id)
-                .load(connection)
-                .optional()?;
-
-            let steam_extra: Option<Vec<i64>> = game_steam_extra_id::table
-                .filter(game_steam_extra_id::game_metadata_id.eq(id))
-                .select(game_steam_extra_id::id)
-                .load(connection)
-                .optional()?;
+            let additional_metadata = load_game_additional_metadata_parts(connection, id)?;
 
             Ok(Some(GameMetadata {
                 id: Some(id),
                 metadata: GameMetadataCreate {
-                    known_name: name_rows,
+                    known_name: additional_metadata.known_name,
                     steam_appid: meta.steam_appid,
                     default_name: meta.default_name,
                     install_dir: meta.install_dir,
@@ -478,15 +488,62 @@ impl GameDatabase {
                     origin_cloud: meta.origin_cloud,
                     steam_cloud: meta.steam_cloud,
                     uplay_cloud: meta.uplay_cloud,
-                    gog_extra,
-                    steam_extra,
+                    gog_extra: additional_metadata.gog_extra,
+                    steam_extra: additional_metadata.steam_extra,
                     ludusavi_managed: meta.ludusavi_managed,
                 },
             }))
         })
     }
 
-    pub fn get_games_metadata(&self) -> Result<Vec<GameMetadata>, Box<dyn Error>> {
+    pub fn get_games_default_name(
+        &self,
+    ) -> Result<Vec<GameDefaultName>, Box<dyn Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+        let default_name: Vec<(Option<i32>, String)> = game_metadata::table
+            .select((game_metadata::id, game_metadata::default_name))
+            .load(connection)
+            .optional()?
+            .unwrap_or_default();
+
+        Ok(default_name
+            .iter()
+            .filter_map(|(id_opt, name)| {
+                id_opt.map(|id| GameDefaultName {
+                    id,
+                    default_name: name.clone(),
+                })
+            })
+            .collect::<Vec<_>>())
+    }
+
+    pub fn get_games_default_name_and_ludusavi_managed(
+        &self,
+    ) -> Result<Vec<GameNameAndLudusavi>, Box<dyn Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+        let default_name: Vec<(Option<i32>, String, Option<bool>)> = game_metadata::table
+            .select((
+                game_metadata::id,
+                game_metadata::default_name,
+                game_metadata::ludusavi_managed,
+            ))
+            .load(connection)
+            .optional()?
+            .unwrap_or_default();
+
+        Ok(default_name
+            .iter()
+            .filter_map(|(id_opt, name, ludusavi_managed)| {
+                id_opt.map(|id| GameNameAndLudusavi {
+                    id,
+                    ludusavi_managed: *ludusavi_managed,
+                    default_name: name.clone(),
+                })
+            })
+            .collect::<Vec<_>>())
+    }
+
+    pub fn get_games_metadata(&self) -> Result<Vec<GameMetadata>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let db_games: Vec<DbGameMetadata> = game_metadata::table
             .select(DbGameMetadata::as_select())
@@ -496,28 +553,13 @@ impl GameDatabase {
 
         let mut games = Vec::with_capacity(db_games.len());
         for db_game_metadata in db_games {
-            let known_name: Option<Vec<String>> = game_alt_name::table
-                .filter(game_alt_name::game_metadata_id.eq(db_game_metadata.id.unwrap()))
-                .select(game_alt_name::name)
-                .load(connection)
-                .optional()?;
-
-            let gog_extra: Option<Vec<i64>> = game_gog_extra_id::table
-                .filter(game_gog_extra_id::game_metadata_id.eq(db_game_metadata.id.unwrap()))
-                .select(game_gog_extra_id::id)
-                .load(connection)
-                .optional()?;
-
-            let steam_extra: Option<Vec<i64>> = game_steam_extra_id::table
-                .filter(game_steam_extra_id::game_metadata_id.eq(db_game_metadata.id.unwrap()))
-                .select(game_steam_extra_id::id)
-                .load(connection)
-                .optional()?;
+            let additional_metadata =
+                load_game_additional_metadata_parts(connection, db_game_metadata.id.unwrap())?;
 
             games.push(GameMetadata {
                 id: db_game_metadata.id,
                 metadata: GameMetadataCreate {
-                    known_name,
+                    known_name: additional_metadata.known_name,
                     steam_appid: db_game_metadata.steam_appid,
                     default_name: db_game_metadata.default_name,
                     install_dir: db_game_metadata.install_dir,
@@ -529,8 +571,8 @@ impl GameDatabase {
                     origin_cloud: db_game_metadata.origin_cloud,
                     steam_cloud: db_game_metadata.steam_cloud,
                     uplay_cloud: db_game_metadata.uplay_cloud,
-                    gog_extra,
-                    steam_extra,
+                    gog_extra: additional_metadata.gog_extra,
+                    steam_extra: additional_metadata.steam_extra,
                     ludusavi_managed: db_game_metadata.ludusavi_managed,
                 },
             });
@@ -541,7 +583,7 @@ impl GameDatabase {
 
     pub fn get_games_metadata_and_paths_if_saves_exist(
         &self,
-    ) -> Result<Vec<GameMetadataWithPaths>, Box<dyn Error>> {
+    ) -> Result<Vec<GameMetadataWithPaths>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let db_games: Vec<(DbGameMetadata, DbGamePath)> = game_metadata::table
             .inner_join(
@@ -564,29 +606,13 @@ impl GameDatabase {
 
         let mut games = Vec::with_capacity(games_map.len());
         for (game_id, (db_game_metadata, db_paths)) in games_map {
-            let known_name: Option<Vec<String>> = game_alt_name::table
-                .filter(game_alt_name::game_metadata_id.eq(game_id))
-                .select(game_alt_name::name)
-                .load(connection)
-                .optional()?;
-
-            let gog_extra: Option<Vec<i64>> = game_gog_extra_id::table
-                .filter(game_gog_extra_id::game_metadata_id.eq(game_id))
-                .select(game_gog_extra_id::id)
-                .load(connection)
-                .optional()?;
-
-            let steam_extra: Option<Vec<i64>> = game_steam_extra_id::table
-                .filter(game_steam_extra_id::game_metadata_id.eq(game_id))
-                .select(game_steam_extra_id::id)
-                .load(connection)
-                .optional()?;
+            let additional_metadata = load_game_additional_metadata_parts(connection, game_id)?;
 
             games.push(GameMetadataWithPaths {
                 game_metadata: GameMetadata {
                     id: db_game_metadata.id,
                     metadata: GameMetadataCreate {
-                        known_name,
+                        known_name: additional_metadata.known_name,
                         steam_appid: db_game_metadata.steam_appid,
                         default_name: db_game_metadata.default_name,
                         install_dir: db_game_metadata.install_dir,
@@ -598,8 +624,8 @@ impl GameDatabase {
                         origin_cloud: db_game_metadata.origin_cloud,
                         steam_cloud: db_game_metadata.steam_cloud,
                         uplay_cloud: db_game_metadata.uplay_cloud,
-                        gog_extra,
-                        steam_extra,
+                        gog_extra: additional_metadata.gog_extra,
+                        steam_extra: additional_metadata.steam_extra,
                         ludusavi_managed: db_game_metadata.ludusavi_managed,
                     },
                 },

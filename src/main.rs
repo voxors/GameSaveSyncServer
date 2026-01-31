@@ -34,8 +34,8 @@ use crate::route_executables::{
     get_game_executables, get_game_executables_by_os, post_game_executable,
 };
 use crate::route_games::{
-    get_game_metadata, get_games_metadata, get_games_metadata_with_paths_if_saves_exists,
-    post_game_metadata,
+    get_game_metadata, get_games_default_name, get_games_metadata,
+    get_games_metadata_with_paths_if_saves_exists, post_game_metadata,
 };
 use crate::route_health::get_health;
 use crate::route_paths::{get_game_paths, get_game_paths_by_os, post_game_path};
@@ -105,6 +105,7 @@ async fn main() {
             "/games/paths/saves",
             get(get_games_metadata_with_paths_if_saves_exists),
         )
+        .route("/games/default_name", get(get_games_default_name))
         .route("/games/{Id}", get(get_game_metadata))
         .route(
             "/games/{Id}/executables",

@@ -15,11 +15,16 @@ pub async fn yaml_import(yaml_path: impl AsRef<Path>) -> Result<(), Box<dyn Erro
     file.read_to_string(&mut yaml_str).await?;
     let games: GameIndex = serde_yaml::from_str(&yaml_str)?;
 
-    let db_games_metadata = DATABASE
-        .get_games_metadata()
+    let db_games_name_ludusavi = DATABASE
+        .get_games_default_name_and_ludusavi_managed()
         .map_err(|err| err.to_string())?
         .into_iter()
-        .map(|game_metadata| (game_metadata.metadata.clone().default_name, game_metadata))
+        .map(|db_games_name_ludusavi| {
+            (
+                db_games_name_ludusavi.default_name.clone(),
+                db_games_name_ludusavi,
+            )
+        })
         .collect::<HashMap<_, _>>();
 
     let mut game_known_name_hashmap: HashMap<String, Vec<String>> = HashMap::new();
@@ -37,17 +42,17 @@ pub async fn yaml_import(yaml_path: impl AsRef<Path>) -> Result<(), Box<dyn Erro
     let mut game_to_update: Vec<(i32, GameFull)> = Vec::new();
 
     for (name, game) in games {
-        if game.alias.is_none() && !db_games_metadata.contains_key(name.as_str()) {
+        if game.alias.is_none() && !db_games_name_ludusavi.contains_key(name.as_str()) {
             game_to_add.push(extract_datatype_endpoint_from_game_index(
                 &name,
                 &game,
                 game_known_name_hashmap.get(name.as_str()).cloned(),
             ));
-        } else if let Some(metadata) = db_games_metadata.get(name.as_str())
-            && metadata.metadata.ludusavi_managed.unwrap_or(true)
+        } else if let Some(game_name_ludusavi) = db_games_name_ludusavi.get(name.as_str())
+            && game_name_ludusavi.ludusavi_managed.unwrap_or(true)
         {
             game_to_update.push((
-                metadata.id.unwrap(),
+                game_name_ludusavi.id,
                 extract_datatype_endpoint_from_game_index(
                     &name,
                     &game,
