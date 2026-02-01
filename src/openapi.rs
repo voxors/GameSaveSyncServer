@@ -7,7 +7,7 @@ use crate::route_executables::{
     __path_get_game_executables, __path_get_game_executables_by_os, __path_post_game_executable,
 };
 use crate::route_games::{
-    __path_get_game_metadata, __path_get_games_metadata,
+    __path_get_game_metadata, __path_get_games_default_name, __path_get_games_metadata,
     __path_get_games_metadata_with_paths_if_saves_exists, __path_post_game_metadata,
 };
 use crate::route_health::__path_get_health;
@@ -21,8 +21,10 @@ use crate::route_saves::{
 };
 use crate::route_uuid::__path_get_db_uuid;
 use crate::route_yaml_import::__path_post_ludusavi_yaml;
-use utoipa::OpenApi;
-use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
+use utoipa::{
+    OpenApi,
+    openapi::security::{Http, HttpAuthScheme, SecurityScheme},
+};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -37,6 +39,7 @@ use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
         get_game_registries,
         get_game_save_by_uuid,
         get_game_saves_reference_by_path_id,
+        get_games_default_name,
         get_games_metadata,
         get_games_metadata_with_paths_if_saves_exists,
         get_health,

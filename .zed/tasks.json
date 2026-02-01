@@ -1,0 +1,6 @@
+[
+  {
+    "label": "Code coverage",
+    "command": "cargo tarpaulin --output-dir test_result --out html",
+  },
+]
