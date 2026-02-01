@@ -3,8 +3,18 @@ use crate::const_var::ROOT_API_PATH;
 use crate::datatype_endpoint::{
     GameDefaultName, GameMetadata, GameMetadataCreate, GameMetadataWithPaths,
 };
-use axum::{Json, extract::Path, http::StatusCode};
+use axum::{
+    Json,
+    extract::{Path, Query},
+    http::StatusCode,
+};
 use const_format::concatcp;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+pub struct SearchParams {
+    name: String,
+}
 
 #[utoipa::path(
     post,
@@ -41,6 +51,28 @@ pub async fn get_games_metadata() -> Result<Json<Vec<GameMetadata>>, StatusCode>
         Ok(data) => Ok(Json(data)),
         Err(e) => {
             tracing::error!("Error retrieving game metadata: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = concatcp!(ROOT_API_PATH, "/games/search"),
+    params(
+        ("name" = String, Query, description = "Search string for game name")
+    ),
+    responses(
+        (status = StatusCode::OK, description = "Search games by name", body = [GameDefaultName])
+    )
+)]
+pub async fn get_games_search(
+    Query(params): Query<SearchParams>,
+) -> Result<Json<Vec<GameDefaultName>>, StatusCode> {
+    match DATABASE.search_games_by_name(&params.name) {
+        Ok(names) => Ok(Json(names)),
+        Err(e) => {
+            tracing::error!("Error searching games: {e}");
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
