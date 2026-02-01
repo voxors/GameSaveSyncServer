@@ -265,8 +265,8 @@ impl GameDatabase {
     pub fn add_games_full(&self, games: Vec<GameFull>) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
-        for game in games {
-            connection.immediate_transaction(|conn| {
+        connection.immediate_transaction(|conn| {
+            for game in games {
                 let inserted_id = add_game_metadata(conn, &game.game_metadata)?;
 
                 if !game.executables.is_empty() {
@@ -314,10 +314,9 @@ impl GameDatabase {
                         )
                         .execute(conn)?;
                 }
-
-                Ok::<(), Box<dyn Error + Send + Sync>>(())
-            })?
-        }
+            }
+            Ok::<(), Box<dyn Error + Send + Sync>>(())
+        })?;
 
         Ok(())
     }
@@ -398,16 +397,43 @@ impl GameDatabase {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
-        for game_metadata in games_metadata {
-            connection.immediate_transaction(|connection| {
+        connection.immediate_transaction(|connection| {
+            for game_metadata in games_metadata {
                 add_game_metadata(connection, game_metadata)?;
-                Ok::<(), Box<dyn Error + Send + Sync>>(())
-            })?;
-        }
+            }
+            Ok::<(), Box<dyn Error + Send + Sync>>(())
+        })?;
+
         Ok(())
     }
 
-    pub fn get_game_metadata_by_name(
+    pub fn search_games_by_name(
+        &self,
+        search_string: &str,
+    ) -> Result<Vec<GameDefaultName>, Box<dyn Error + Send + Sync>> {
+        let connection = &mut self.pool.get()?;
+
+        let pattern = format!("%{}%", search_string);
+
+        let db_game_list: Vec<(Option<i32>, String)> = game_metadata::table
+            .select((game_metadata::id, game_metadata::default_name))
+            .left_join(game_alt_name::table)
+            .filter(game_metadata::default_name.like(&pattern))
+            .or_filter(game_alt_name::name.like(&pattern))
+            .load(connection)?;
+
+        Ok(db_game_list
+            .iter()
+            .filter_map(|(id_opt, name)| {
+                id_opt.map(|id| GameDefaultName {
+                    id,
+                    default_name: name.clone(),
+                })
+            })
+            .collect())
+    }
+
+    pub fn get_games_metadata_by_name(
         &self,
         target_name: &str,
     ) -> Result<Vec<GameMetadata>, Box<dyn Error + Send + Sync>> {
@@ -454,46 +480,44 @@ impl GameDatabase {
     ) -> Result<Option<GameMetadata>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
 
-        connection.immediate_transaction(|connection| {
-            let maybe_meta: Option<DbGameMetadata> = game_metadata::table
-                .filter(game_metadata::id.eq(target_id))
-                .select(DbGameMetadata::as_select())
-                .first(connection)
-                .optional()?;
+        let maybe_meta: Option<DbGameMetadata> = game_metadata::table
+            .filter(game_metadata::id.eq(target_id))
+            .select(DbGameMetadata::as_select())
+            .first(connection)
+            .optional()?;
 
-            let meta = match maybe_meta {
-                Some(meta) => meta,
-                None => return Ok(None),
-            };
+        let meta = match maybe_meta {
+            Some(meta) => meta,
+            None => return Ok(None),
+        };
 
-            let id = match meta.id {
-                Some(id) => id,
-                None => return Ok(None),
-            };
+        let id = match meta.id {
+            Some(id) => id,
+            None => return Ok(None),
+        };
 
-            let additional_metadata = load_game_additional_metadata_parts(connection, id)?;
+        let additional_metadata = load_game_additional_metadata_parts(connection, id)?;
 
-            Ok(Some(GameMetadata {
-                id: Some(id),
-                metadata: GameMetadataCreate {
-                    known_name: additional_metadata.known_name,
-                    steam_appid: meta.steam_appid,
-                    default_name: meta.default_name,
-                    install_dir: meta.install_dir,
-                    gog: meta.gog,
-                    flatpak_id: meta.flatpak_id,
-                    lutris_id: meta.lutris_id,
-                    epic_cloud: meta.epic_cloud,
-                    gog_cloud: meta.gog_cloud,
-                    origin_cloud: meta.origin_cloud,
-                    steam_cloud: meta.steam_cloud,
-                    uplay_cloud: meta.uplay_cloud,
-                    gog_extra: additional_metadata.gog_extra,
-                    steam_extra: additional_metadata.steam_extra,
-                    ludusavi_managed: meta.ludusavi_managed,
-                },
-            }))
-        })
+        Ok(Some(GameMetadata {
+            id: Some(id),
+            metadata: GameMetadataCreate {
+                known_name: additional_metadata.known_name,
+                steam_appid: meta.steam_appid,
+                default_name: meta.default_name,
+                install_dir: meta.install_dir,
+                gog: meta.gog,
+                flatpak_id: meta.flatpak_id,
+                lutris_id: meta.lutris_id,
+                epic_cloud: meta.epic_cloud,
+                gog_cloud: meta.gog_cloud,
+                origin_cloud: meta.origin_cloud,
+                steam_cloud: meta.steam_cloud,
+                uplay_cloud: meta.uplay_cloud,
+                gog_extra: additional_metadata.gog_extra,
+                steam_extra: additional_metadata.steam_extra,
+                ludusavi_managed: meta.ludusavi_managed,
+            },
+        }))
     }
 
     pub fn get_games_default_name(
@@ -679,7 +703,10 @@ impl GameDatabase {
         Ok(paths)
     }
 
-    pub fn get_paths_by_game_id(&self, game_id: i32) -> Result<Vec<SavePath>, Box<dyn Error>> {
+    pub fn get_paths_by_game_id(
+        &self,
+        game_id: i32,
+    ) -> Result<Vec<SavePath>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let path_rows: Vec<(Option<i32>, String, OS)> = game_path::table
             .filter(game_path::game_metadata_id.eq(game_id))
@@ -731,7 +758,7 @@ impl GameDatabase {
     pub fn get_executable_by_game_id(
         &self,
         game_id: i32,
-    ) -> Result<Vec<Executable>, Box<dyn Error>> {
+    ) -> Result<Vec<Executable>, Box<dyn Error + Send + Sync>> {
         let connection = &mut self.pool.get()?;
         let executable_rows: Vec<(Option<i32>, String, OS)> = game_executable::table
             .filter(game_executable::game_metadata_id.eq(game_id))
@@ -958,6 +985,808 @@ impl GameDatabase {
                 game_metadata_id: game_id,
             })
             .execute(connection)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fresh_db() -> GameDatabase {
+        GameDatabase::new(&format!("file:{}?mode=memory&cache=shared", Uuid::new_v4()))
+    }
+
+    #[test]
+    fn test_add_games_full() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        let game_full = GameFull {
+            game_metadata: GameMetadataCreate {
+                known_name: None,
+                steam_appid: None,
+                default_name: "FullGame".to_string(),
+                install_dir: None,
+                gog: None,
+                flatpak_id: None,
+                lutris_id: None,
+                epic_cloud: None,
+                gog_cloud: None,
+                origin_cloud: None,
+                steam_cloud: None,
+                uplay_cloud: None,
+                ludusavi_managed: None,
+                gog_extra: None,
+                steam_extra: None,
+            },
+            executables: vec![],
+            paths: vec![],
+            registries: vec![],
+        };
+
+        db.add_games_full(vec![game_full])?;
+        let names = db.get_games_default_name()?;
+        assert!(names.iter().any(|n| n.default_name == "FullGame"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_games_metadata() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "MetaGame".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let names = db.get_games_default_name()?;
+        assert!(names.iter().any(|n| n.default_name == "MetaGame"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_games_by_name_contains() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "Super Mario".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let results = db.search_games_by_name("Mario")?;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].default_name, "Super Mario");
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_games_by_name_equal() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "Super Mario".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let results = db.search_games_by_name("Super Mario")?;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].default_name, "Super Mario");
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_games_by_known_name_contains() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: Some(vec!["Super Luigi".to_string()]),
+            steam_appid: None,
+            default_name: "Super Mario".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let results = db.search_games_by_name("Luigi")?;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].default_name, "Super Mario");
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_games_by_known_name_equal() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: Some(vec!["Super Luigi".to_string()]),
+            steam_appid: None,
+            default_name: "Super Mario".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let results = db.search_games_by_name("Super Luigi")?;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].default_name, "Super Mario");
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_games_by_default_name_case_insensitive()
+    -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "Super Mario".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let results = db.search_games_by_name("super mario")?;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].default_name, "Super Mario");
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_games_no_results() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+        let results = db.search_games_by_name("Nonexistent Game")?;
+        assert!(results.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_game_metadata_by_name() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "MetaName".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let meta = db.get_games_metadata_by_name("MetaName")?;
+        assert_eq!(meta.first().unwrap().metadata.default_name, "MetaName");
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_game_metadata_by_id() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "ById".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let meta = db.get_game_metadata_by_id(&1)?;
+        assert_eq!(meta.unwrap().metadata.default_name, "ById");
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_games_default_name() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "Default".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let names = db.get_games_default_name()?;
+        assert!(names.iter().any(|n| n.default_name == "Default"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_games_default_name_and_ludusavi_managed() -> Result<(), Box<dyn Error + Send + Sync>>
+    {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "Managed".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: Some(true),
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let result = db.get_games_default_name_and_ludusavi_managed()?;
+        assert!(
+            result.iter().any(
+                |game_name_ludusavi| game_name_ludusavi.default_name == "Managed"
+                    && game_name_ludusavi.ludusavi_managed.unwrap()
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_games_metadata() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "MetaList".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        let games_metadata = db.get_games_metadata()?;
+        assert!(
+            games_metadata
+                .iter()
+                .any(|m| m.metadata.default_name == "MetaList")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_games_metadata_and_paths_if_saves_exist() -> Result<(), Box<dyn Error + Send + Sync>>
+    {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "PathsExist".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_path(
+            1,
+            &SavePathCreate {
+                path: "p1".to_string(),
+                operating_system: OS::Undefined,
+            },
+        )?;
+
+        db.add_reference_to_save(
+            Uuid::new_v4(),
+            1,
+            vec![FileHash {
+                relative_path: "potato".to_string(),
+                hash: "potato".to_string(),
+            }],
+        )?;
+
+        let res = db.get_games_metadata_and_paths_if_saves_exist()?;
+        assert!(
+            res.iter()
+                .any(|m| m.game_metadata.metadata.default_name == "PathsExist")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_game_path() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "AddPath".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_path(
+            1,
+            &SavePathCreate {
+                path: "/tmp".to_string(),
+                operating_system: OS::Undefined,
+            },
+        )?;
+
+        let paths = db.get_paths_by_game_id_and_os(1, OS::Undefined)?;
+        assert!(paths.iter().any(|p| p == "/tmp"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_paths_by_game_id_and_os() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "PathOs".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_path(
+            1,
+            &SavePathCreate {
+                path: "c:\\game".to_string(),
+                operating_system: OS::Windows,
+            },
+        )?;
+
+        let paths = db.get_paths_by_game_id_and_os(1, OS::Windows)?;
+        assert_eq!(paths.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_paths_by_game_id() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "AllPaths".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_path(
+            1,
+            &SavePathCreate {
+                path: "x".to_string(),
+                operating_system: OS::Undefined,
+            },
+        )?;
+
+        let paths = db.get_paths_by_game_id(1)?;
+        assert_eq!(paths.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_game_executable() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "ExecGame".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_executable(
+            1,
+            &ExecutableCreate {
+                executable: "run.exe".to_string(),
+                operating_system: OS::Undefined,
+            },
+        )?;
+
+        let execs = db.get_executable_by_game_id_and_os(1, OS::Undefined)?;
+        assert!(execs.iter().any(|e| e == "run.exe"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_executable_by_game_id_and_os() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "ExeOs".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_executable(
+            1,
+            &ExecutableCreate {
+                executable: "game.exe".to_string(),
+                operating_system: OS::Windows,
+            },
+        )?;
+
+        let execs = db.get_executable_by_game_id_and_os(1, OS::Windows)?;
+        assert_eq!(execs.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_executable_by_game_id() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "AllExe".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_executable(
+            1,
+            &ExecutableCreate {
+                executable: "all.exe".to_string(),
+                operating_system: OS::Undefined,
+            },
+        )?;
+
+        let execs = db.get_executable_by_game_id(1)?;
+        assert!(execs.iter().any(|e| e.executable.executable == "all.exe"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_reference_to_save() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "SaveRef".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_path(
+            1,
+            &SavePathCreate {
+                path: "save_dir".to_string(),
+                operating_system: OS::Undefined,
+            },
+        )?;
+
+        db.add_reference_to_save(Uuid::new_v4(), 1, vec![])?;
+
+        let refs = db.get_reference_to_save_by_path_id(1)?;
+        assert_eq!(refs.unwrap().len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_reference_to_save_by_path_id() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "RefPath".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_path(
+            1,
+            &SavePathCreate {
+                path: "ref_dir".to_string(),
+                operating_system: OS::Undefined,
+            },
+        )?;
+
+        let uuid = Uuid::new_v4();
+        db.add_reference_to_save(uuid, 1, vec![])?;
+
+        let refs = db.get_reference_to_save_by_path_id(1)?;
+        assert_eq!(refs.unwrap().len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_database_uuid() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+        let uuid_opt = db.get_database_uuid()?;
+        assert!(uuid_opt.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_api_tokens() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+        let uuid = Uuid::new_v4();
+        db.add_api_tokens(vec![uuid])?;
+        let tokens = db.get_api_tokens()?;
+        assert!(tokens.contains(&uuid));
+        Ok(())
+    }
+
+    #[test]
+    fn test_remove_api_tokens() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+        let token = Uuid::new_v4();
+        db.add_api_tokens(vec![token])?;
+        db.remove_api_tokens(vec![token])?;
+        let tokens = db.get_api_tokens()?;
+        assert!(!tokens.contains(&token));
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_configuration_value() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+        db.update_configuration_value("max_save_per_game", "10")?;
+        let val = db.get_configuration_value("max_save_per_game")?;
+        assert!(val.unwrap().value == "10");
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_game_registry_by_game_id() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "RegGame".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_registry_path(
+            1,
+            &GameRegistry {
+                path: "reg1".to_string(),
+            },
+        )?;
+
+        let reg = db.get_game_registry_by_game_id(1)?;
+        assert!(reg.iter().any(|r| r.path == "reg1"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_game_registry_path() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = fresh_db();
+
+        db.add_games_metadata(vec![&GameMetadataCreate {
+            known_name: None,
+            steam_appid: None,
+            default_name: "AddReg".to_string(),
+            install_dir: None,
+            gog: None,
+            flatpak_id: None,
+            lutris_id: None,
+            epic_cloud: None,
+            gog_cloud: None,
+            origin_cloud: None,
+            steam_cloud: None,
+            uplay_cloud: None,
+            ludusavi_managed: None,
+            gog_extra: None,
+            steam_extra: None,
+        }])?;
+
+        db.add_game_registry_path(
+            1,
+            &GameRegistry {
+                path: "new_reg".to_string(),
+            },
+        )?;
+
+        let reg = db.get_game_registry_by_game_id(1)?;
+        assert!(reg.iter().any(|r| r.path == "new_reg"));
         Ok(())
     }
 }

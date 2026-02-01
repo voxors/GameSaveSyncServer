@@ -21,8 +21,10 @@ use crate::route_saves::{
 };
 use crate::route_uuid::__path_get_db_uuid;
 use crate::route_yaml_import::__path_post_ludusavi_yaml;
-use utoipa::OpenApi;
-use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
+use utoipa::{
+    OpenApi,
+    openapi::security::{Http, HttpAuthScheme, SecurityScheme},
+};
 
 #[derive(OpenApi)]
 #[openapi(
