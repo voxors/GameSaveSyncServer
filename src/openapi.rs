@@ -8,7 +8,8 @@ use crate::route_executables::{
 };
 use crate::route_games::{
     __path_get_game_metadata, __path_get_games_default_name, __path_get_games_metadata,
-    __path_get_games_metadata_with_paths_if_saves_exists, __path_post_game_metadata,
+    __path_get_games_metadata_with_paths_if_saves_exists, __path_get_games_search,
+    __path_post_game_metadata,
 };
 use crate::route_health::__path_get_health;
 use crate::route_paths::{
@@ -42,6 +43,7 @@ use utoipa::{
         get_games_default_name,
         get_games_metadata,
         get_games_metadata_with_paths_if_saves_exists,
+        get_games_search,
         get_health,
         post_game_executable,
         post_game_metadata,
