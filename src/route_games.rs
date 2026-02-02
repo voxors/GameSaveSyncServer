@@ -122,7 +122,7 @@ pub async fn get_games_metadata_with_paths_if_saves_exists()
         ("Id" = String, Path, description = "Id of the game")
     ),
     responses(
-        (status = StatusCode::OK, description = "game metadata returned, body = [GameMetadata]"),
+        (status = StatusCode::OK, description = "game metadata returned", body = GameMetadata),
         (status = StatusCode::NOT_FOUND, description = "game not found")
     )
 )]
