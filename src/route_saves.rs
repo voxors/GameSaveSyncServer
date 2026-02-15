@@ -2,7 +2,7 @@ use crate::DATABASE;
 use crate::configuration::MAX_SAVE_PER_GAME_INFO;
 use crate::const_var::{ROOT_API_PATH, SAVE_DIR, TMP_DIR};
 use crate::datatype_endpoint::{SaveReference, UploadedSave};
-use crate::file_system::write_bytes_to_data_file;
+use crate::file_system::{append_file, create_tmp_file, move_file};
 use axum::body::Body;
 use axum::extract::Multipart;
 use axum::response::{IntoResponse, Response};
@@ -62,9 +62,9 @@ pub async fn post_game_save_by_path_id(
 
     let result: Result<(), Box<dyn std::error::Error + Send + Sync>> = async {
         let mut file_hash: Vec<crate::datatype_endpoint::FileHash> = Vec::new();
-        let mut file_bytes: Vec<u8> = Vec::new();
+        let mut file = create_tmp_file(&tmp_path).await?;
 
-        while let Some(field) = multipart.next_field().await? {
+        while let Some(mut field) = multipart.next_field().await? {
             match field.name() {
                 Some("file_hash") => {
                     let bytes = field.bytes().await?;
@@ -72,13 +72,14 @@ pub async fn post_game_save_by_path_id(
                     file_hash = serde_json::from_str(&json_str)?;
                 }
                 _ => {
-                    let data = field.bytes().await?;
-                    file_bytes.extend_from_slice(&data);
+                    while let Some(chunk) = field.chunk().await? {
+                        append_file(&mut file, &chunk).await?;
+                    }
                 }
             }
         }
 
-        write_bytes_to_data_file(&tmp_path, &save_path, &file_bytes).await?;
+        move_file(&tmp_path, &save_path).await?;
 
         DATABASE.add_reference_to_save(uuid, path_id, file_hash)?;
 
