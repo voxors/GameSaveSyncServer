@@ -14,6 +14,56 @@ use tokio::fs::{self, File};
 use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
+async fn cleanup_old_saves(path_id: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+    if let Some(mut saves_ref) = DATABASE.get_reference_to_save_by_path_id(path_id)? {
+        saves_ref.sort_by_key(|save_ref| save_ref.time);
+        let maybe_max_saves = match MAX_SAVE_PER_GAME_INFO.get_value_in_db() {
+            Ok(Some(cfg)) => match cfg.value.parse::<usize>() {
+                Ok(value) => Some(value),
+                Err(err) => {
+                    tracing::error!(
+                        "Failed to read {} config: {}",
+                        MAX_SAVE_PER_GAME_INFO.id,
+                        err
+                    );
+                    None
+                }
+            },
+            Ok(None) => {
+                tracing::error!("No {} in the database", MAX_SAVE_PER_GAME_INFO.id);
+                None
+            }
+            Err(err) => {
+                tracing::error!(
+                    "Failed to read {} config: {}",
+                    MAX_SAVE_PER_GAME_INFO.id,
+                    err
+                );
+                None
+            }
+        };
+        if let Some(max_saves) = maybe_max_saves {
+            while saves_ref.len() > max_saves {
+                let old = saves_ref.remove(0);
+                let old_path = format!("{}/{}.sav", SAVE_DIR, old.uuid);
+                let _ = std::fs::remove_file(&old_path);
+            }
+        };
+    } else {
+        tracing::error!(
+            "Failed to fetch database for save reference for path id: {}",
+            path_id
+        );
+        return Err(format!(
+            "Failed to fetch database for save reference for path id: {}",
+            path_id
+        )
+        .into());
+    }
+
+    Ok(())
+}
+
 #[utoipa::path(
     get,
     path = concatcp!(ROOT_API_PATH, "/paths/{Id}/saves"),
@@ -147,44 +197,9 @@ pub async fn post_game_save_by_path_id(
             .add_reference_to_save(uuid, path_id, file_hash)
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        if let Some(mut saves_ref) = DATABASE
-            .get_reference_to_save_by_path_id(path_id)
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        {
-            saves_ref.sort_by_key(|save_ref| save_ref.time);
-            let maybe_max_saves = match MAX_SAVE_PER_GAME_INFO.get_value_in_db() {
-                Ok(Some(cfg)) => match cfg.value.parse::<usize>() {
-                    Ok(value) => Some(value),
-                    Err(err) => {
-                        tracing::error!(
-                            "Failed to read {} config: {}",
-                            MAX_SAVE_PER_GAME_INFO.id,
-                            err
-                        );
-                        None
-                    }
-                },
-                Ok(None) => {
-                    tracing::error!("No {} in the database", MAX_SAVE_PER_GAME_INFO.id);
-                    None
-                }
-                Err(err) => {
-                    tracing::error!(
-                        "Failed to read {} config: {}",
-                        MAX_SAVE_PER_GAME_INFO.id,
-                        err
-                    );
-                    None
-                }
-            };
-            if let Some(max_saves) = maybe_max_saves {
-                while saves_ref.len() > max_saves {
-                    let old = saves_ref.remove(0);
-                    let old_path = format!("{}/{}.sav", SAVE_DIR, old.uuid);
-                    let _ = std::fs::remove_file(&old_path);
-                }
-            }
-        }
+        cleanup_old_saves(path_id)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
         Ok((
             StatusCode::CREATED,
