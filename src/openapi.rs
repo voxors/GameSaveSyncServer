@@ -1,6 +1,6 @@
 use crate::datatype_endpoint::{
     Executable, ExecutableCreate, FileHash, GameMetadata, GameMetadataCreate, OS, SavePath,
-    SavePathCreate, SaveReference, UploadedFileYaml, UploadedSave,
+    SavePathCreate, SaveReference, UploadedFileYaml, UploadedSave, UploadedSaveResponse,
 };
 use crate::route_configuration::{__path_get_configuration, __path_put_configuration};
 use crate::route_executables::{
@@ -57,6 +57,7 @@ use utoipa::{
         FileHash,
         UploadedSave,
         UploadedFileYaml,
+        UploadedSaveResponse,
         SavePathCreate,
         SavePath,
         ExecutableCreate,

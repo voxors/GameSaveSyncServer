@@ -1,16 +1,16 @@
 use crate::DATABASE;
 use crate::configuration::MAX_SAVE_PER_GAME_INFO;
 use crate::const_var::{ROOT_API_PATH, SAVE_DIR, TMP_DIR};
-use crate::datatype_endpoint::{SaveReference, UploadedSave};
-use crate::file_system::{append_file, create_tmp_file, move_file};
+use crate::datatype_endpoint::{FileHash, SaveReference, UploadedSave, UploadedSaveResponse};
+use crate::file_system::{append_file, create_empty_file, read_file, write_bytes_to_file};
 use axum::body::Body;
 use axum::extract::Multipart;
 use axum::response::{IntoResponse, Response};
 use axum::{Json, extract::Path, http::StatusCode};
 use const_format::concatcp;
-use std::fs;
+use std::error::Error;
 use std::path::PathBuf;
-use tokio::fs::File;
+use tokio::fs::{self, File};
 use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
@@ -46,44 +46,111 @@ pub async fn get_game_saves_reference_by_path_id(
     request_body(
         content = UploadedSave,
         content_type = "multipart/form-data",
-        description = "save to upload"
+        description = "chunked save upload"
     ),
     responses(
-        (status = StatusCode::CREATED, description = "game save created", body = String),
+        (status = StatusCode::CREATED, description = "game save created", body = UploadedSaveResponse),
+        (status = StatusCode::OK, description = "game save chunk accepted", body = UploadedSaveResponse)
     )
 )]
 pub async fn post_game_save_by_path_id(
     Path((path_id,)): Path<(i32,)>,
     mut multipart: Multipart,
-) -> Result<(StatusCode, String), StatusCode> {
-    let uuid = Uuid::new_v4();
-    let tmp_path = format!("{}/{}.sav", TMP_DIR, uuid);
-    let save_path = format!("{}/{}.sav", SAVE_DIR, uuid);
+) -> Result<(StatusCode, Json<UploadedSaveResponse>), StatusCode> {
+    let mut uuid = Uuid::new_v4();
+    let mut chunk_number = 0;
+    let mut total_chunks = 0;
+    let mut chunk_data: Vec<u8> = Vec::new();
+    let mut file_hash: Vec<FileHash> = Vec::new();
 
-    let result: Result<(), Box<dyn std::error::Error + Send + Sync>> = async {
-        let mut file_hash: Vec<crate::datatype_endpoint::FileHash> = Vec::new();
-        let mut file = create_tmp_file(&tmp_path).await?;
-
+    async {
         while let Some(mut field) = multipart.next_field().await? {
-            match field.name() {
-                Some("file_hash") => {
+            let field_name = field.name().unwrap_or_default();
+            match field_name {
+                "uuid" => {
+                    uuid = Uuid::try_parse(field.text().await?.as_str())?;
+                }
+                "chunkNumber" => {
+                    chunk_number = field.text().await?.parse()?;
+                }
+                "totalChunks" => {
+                    total_chunks = field.text().await?.parse()?;
+                }
+                "chunk" => {
+                    while let Some(chunk) = field.chunk().await? {
+                        chunk_data.extend_from_slice(&chunk);
+                    }
+                }
+                "file_hash" => {
                     let bytes = field.bytes().await?;
                     let json_str = String::from_utf8(bytes.to_vec())?;
                     file_hash = serde_json::from_str(&json_str)?;
                 }
-                _ => {
-                    while let Some(chunk) = field.chunk().await? {
-                        append_file(&mut file, &chunk).await?;
-                    }
-                }
+                _ => {}
             }
         }
+        Ok::<(), Box<dyn Error + Send + Sync>>(())
+    }
+    .await
+    .map_err(|_| StatusCode::BAD_REQUEST)?;
 
-        move_file(&tmp_path, &save_path).await?;
+    if chunk_data.is_empty() || total_chunks == 0 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
 
-        DATABASE.add_reference_to_save(uuid, path_id, file_hash)?;
+    let temp_dir = format!("{}/{}", TMP_DIR, uuid);
+    fs::create_dir_all(&temp_dir)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        if let Some(mut saves_ref) = DATABASE.get_reference_to_save_by_path_id(path_id)? {
+    let chunk_path = format!("{}/chunk_{}", temp_dir, chunk_number);
+
+    write_bytes_to_file(&chunk_path, &chunk_data)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut count = 0;
+    let mut dir = match fs::read_dir(&temp_dir).await {
+        Ok(dir) => dir,
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    };
+    while let Some(_entry) = dir
+        .next_entry()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    {
+        count += 1;
+    }
+    let is_complete = count == total_chunks;
+
+    if is_complete {
+        let final_path = format!("{}/{}.sav", SAVE_DIR, uuid);
+
+        let mut file = create_empty_file(&final_path)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        for i in 0..total_chunks {
+            let part_path = format!("{}/chunk_{}", temp_dir, i);
+            let data = read_file(part_path)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            append_file(&mut file, &data)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+
+        fs::remove_dir_all(&temp_dir)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        DATABASE
+            .add_reference_to_save(uuid, path_id, file_hash)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        if let Some(mut saves_ref) = DATABASE
+            .get_reference_to_save_by_path_id(path_id)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        {
             saves_ref.sort_by_key(|save_ref| save_ref.time);
             let maybe_max_saves = match MAX_SAVE_PER_GAME_INFO.get_value_in_db() {
                 Ok(Some(cfg)) => match cfg.value.parse::<usize>() {
@@ -119,18 +186,19 @@ pub async fn post_game_save_by_path_id(
             }
         }
 
-        Ok(())
-    }
-    .await;
-
-    if let Err(e) = result {
-        tracing::error!("Error uploading game save: {}", e);
-        //Try to clean up
-        let _ = fs::remove_file(&tmp_path);
-        let _ = fs::remove_file(&save_path);
-        Err(StatusCode::INTERNAL_SERVER_ERROR)
+        Ok((
+            StatusCode::CREATED,
+            Json(UploadedSaveResponse {
+                uuid: uuid.to_string(),
+            }),
+        ))
     } else {
-        Ok((StatusCode::CREATED, uuid.to_string()))
+        Ok((
+            StatusCode::OK,
+            Json(UploadedSaveResponse {
+                uuid: uuid.to_string(),
+            }),
+        ))
     }
 }
 

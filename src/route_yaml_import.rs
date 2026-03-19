@@ -5,7 +5,7 @@ use tokio::fs;
 use crate::{
     const_var::{ROOT_API_PATH, TMP_DIR},
     datatype_endpoint::UploadedFileYaml,
-    file_system::write_bytes_to_tmp_file,
+    file_system::write_bytes_to_file,
     ludusavi::yaml_import,
 };
 
@@ -32,7 +32,7 @@ pub async fn post_ludusavi_yaml(mut multipart: Multipart) -> StatusCode {
         }
     }
 
-    if let Err(e) = write_bytes_to_tmp_file(&tmp_path, &file_bytes).await {
+    if let Err(e) = write_bytes_to_file(&tmp_path, &file_bytes).await {
         err = Some(format!("write file failed: {}", e));
     } else if let Err(e) = yaml_import(&tmp_path).await {
         err = Some(format!("yaml import failed: {}", e));

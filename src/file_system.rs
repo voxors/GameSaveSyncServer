@@ -4,10 +4,14 @@ use std::path::Path;
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
-pub async fn create_tmp_file(
-    tmp_path: impl AsRef<Path>,
+pub async fn read_file(path: impl AsRef<Path>) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
+    Ok(std::fs::read(path)?)
+}
+
+pub async fn create_empty_file(
+    path: impl AsRef<Path>,
 ) -> Result<File, Box<dyn Error + Send + Sync>> {
-    return Ok(File::create(&tmp_path).await?);
+    return Ok(File::create(&path).await?);
 }
 
 pub async fn append_file(
@@ -18,19 +22,11 @@ pub async fn append_file(
     Ok(())
 }
 
-pub async fn move_file(
-    path1: impl AsRef<Path>,
-    path2: impl AsRef<Path>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    std::fs::rename(&path1, &path2)?;
-    Ok(())
-}
-
-pub async fn write_bytes_to_tmp_file(
-    tmp_path: impl AsRef<Path>,
+pub async fn write_bytes_to_file(
+    path: impl AsRef<Path>,
     bytes: &[u8],
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let mut tmp_file = File::create(&tmp_path).await?;
+    let mut tmp_file = File::create(&path).await?;
     tmp_file.write_all(bytes).await?;
     Ok(())
 }

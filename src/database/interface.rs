@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use std::error::Error;
-
 use crate::database::datatype::{
     DbApiTokens, DbConfiguration, DbDbInfo, DbFileHash, DbGameExecutable, DbGameGogExtraId,
     DbGameMetadata, DbGameName, DbGamePath, DbGameRegistry, DbGameSave, DbGameSteamExtraId,
@@ -18,6 +15,8 @@ use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool};
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+use std::collections::HashMap;
+use std::error::Error;
 use uuid::Uuid;
 
 pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
