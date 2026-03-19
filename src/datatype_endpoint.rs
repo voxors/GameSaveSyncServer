@@ -9,10 +9,20 @@ use utoipa::{IntoParams, ToSchema};
 #[derive(ToSchema)]
 #[allow(unused)]
 pub struct UploadedSave {
+    pub uuid: String,
+    #[schema(rename = "chunkNumber")]
+    pub chunk_number: u64,
+    #[schema(rename = "totalChunks")]
+    pub total_chunks: u64,
     #[schema(value_type = String, format = Binary)]
-    pub file: Vec<u8>,
+    pub chunk: Vec<u8>,
     #[schema(value_type = String, example = json!([{"relative_path": "file.txt", "hash": "abc123"}]))]
     pub file_hash: Vec<FileHash>,
+}
+
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
+pub struct UploadedSaveResponse {
+    pub uuid: String,
 }
 
 #[derive(ToSchema)]

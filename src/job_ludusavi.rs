@@ -1,5 +1,5 @@
 use crate::const_var::{MANIFEST_PATH, MANIFEST_URL};
-use crate::file_system::write_bytes_to_tmp_file;
+use crate::file_system::write_bytes_to_file;
 use crate::job_scheduler::Job;
 use crate::ludusavi::yaml_import;
 use async_trait::async_trait;
@@ -41,7 +41,7 @@ impl Job for LudusaviJob {
                 .to_string();
 
             let bytes = response.bytes().await?;
-            write_bytes_to_tmp_file(MANIFEST_PATH, &bytes).await?;
+            write_bytes_to_file(MANIFEST_PATH, &bytes).await?;
             yaml_import(MANIFEST_PATH).await?;
             let _ = fs::remove_file(MANIFEST_PATH).await;
         } else if response.status() != StatusCode::NOT_MODIFIED {
